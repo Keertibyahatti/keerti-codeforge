@@ -1,0 +1,69 @@
+# CodeForge AI — Database Schema Specification
+
+## Data Models (Prisma ORM)
+
+```prisma
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  programs     Program[]
+  executions   Execution[]
+}
+
+model Program {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  language    String
+  code        String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  versions    CodeVersion[]
+  executions  Execution[]
+}
+
+model CodeVersion {
+  id        String   @id @default(uuid())
+  programId String
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  code      String
+  language  String
+  createdAt DateTime @default(now())
+}
+
+model Execution {
+  id            String       @id @default(uuid())
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  programId     String?
+  program       Program?     @relation(fields: [programId], references: [id], onDelete: SetNull)
+  language      String
+  code          String
+  input         String?      @default("")
+  status        String       // "success", "error", "timeout", "compilation_error"
+  stdout        String?      @default("")
+  stderr        String?      @default("")
+  executionTime Int          // in ms
+  exitCode      Int          @default(0)
+  createdAt     DateTime     @default(now())
+  aiAnalyses    AIAnalysis[]
+}
+
+model AIAnalysis {
+  id                      String    @id @default(uuid())
+  executionId             String
+  execution               Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  errorType               String
+  explanation             String
+  possibleCause           String?   @default("")
+  suggestedFix            String
+  correctedCode           String
+  optimizationSuggestions String?   @default("[]")
+  createdAt               DateTime  @default(now())
+}
+```

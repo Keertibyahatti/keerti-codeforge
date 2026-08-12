@@ -1,0 +1,23 @@
+{
+  "name": "codeforge-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CodeForge AI - Intelligent Web-Based Code Editor with Real-Time Execution and AI-Assisted Optimization",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "setup": "npm install && npm run db:setup",
+    "db:setup": "cd backend && npx prisma db push && node dist/prisma/seed.js",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.4.0",
+    "concurrently": "^9.1.2",
+    "prisma": "^6.4.0"
+  }
+}
