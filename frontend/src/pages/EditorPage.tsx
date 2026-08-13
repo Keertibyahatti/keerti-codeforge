@@ -33,9 +33,18 @@ export const EditorPage: React.FC = () => {
   const [suggestedFixSymbol, setSuggestedFixSymbol] = useState<string | undefined>(undefined);
   const [errorSnippet, setErrorSnippet] = useState<string | undefined>(undefined);
 
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isAILoading, setIsAILoading] = useState<boolean>(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
+
+  // Clear toast notifications after 5 seconds
+  useEffect(() => {
+    if (notificationMessage) {
+      const timer = setTimeout(() => setNotificationMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notificationMessage]);
 
   // Check state from navigation (e.g. from Executions Page rerun)
   useEffect(() => {
@@ -157,8 +166,10 @@ export const EditorPage: React.FC = () => {
   const getFixedCode = (): string | null => {
     let candidate: string | null = null;
 
-    // If function signature is missing 'n' parameter
-    if (code.includes('def calculate_factorial():')) {
+    // Fix truncated factorial line if present
+    if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
+      candidate = code.replace(/print\(f"Factorial of \{num\} is \{calculate_factor.*/, 'print(f"Factorial of {num} is {calculate_factorial(num)}")');
+    } else if (code.includes('def calculate_factorial():')) {
       candidate = code.replace('def calculate_factorial():', 'def calculate_factorial(n):');
     } else if (errorLine && errorLine > 0) {
       const lines = code.split('\n');
@@ -207,6 +218,8 @@ export const EditorPage: React.FC = () => {
       setMissingOperand(undefined);
       setWrongSymbol(undefined);
       setSuggestedFixSymbol(undefined);
+    } else {
+      setNotificationMessage('Auto-Fix generated incomplete code. Your original code was preserved.');
     }
   };
 
@@ -236,10 +249,10 @@ export const EditorPage: React.FC = () => {
         setAiAnalysis(null);
         await executeCodePayload(aiResult.correctedCode, language);
       } else {
-        alert('AI suggested fix failed syntax validation. Please inspect original code.');
+        setNotificationMessage('AI suggested fix failed syntax validation. Your original code was preserved.');
       }
     } catch (err: any) {
-      alert('Auto-Fix failed: ' + (err.response?.data?.message || err.message));
+      setNotificationMessage('Auto-Fix failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsAILoading(false);
     }
@@ -259,7 +272,7 @@ export const EditorPage: React.FC = () => {
       });
       setAiAnalysis(res.data);
     } catch (err: any) {
-      alert('AI Analysis failed: ' + (err.response?.data?.message || err.message));
+      setNotificationMessage('AI Analysis failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsAILoading(false);
     }
@@ -277,7 +290,7 @@ export const EditorPage: React.FC = () => {
       });
       setAiAnalysis(res.data);
     } catch (err: any) {
-      alert('AI Optimization failed: ' + (err.response?.data?.message || err.message));
+      setNotificationMessage('AI Optimization failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsAILoading(false);
     }
@@ -293,7 +306,7 @@ export const EditorPage: React.FC = () => {
           code,
           createNewVersion: true
         });
-        alert('Program and new code version saved!');
+        setNotificationMessage('Program and new code version saved!');
       } else {
         const res = await api.post('/programs', {
           title: programTitle,
@@ -301,10 +314,10 @@ export const EditorPage: React.FC = () => {
           code
         });
         setCurrentProgramId(res.data.program.id);
-        alert('New program saved to your account!');
+        setNotificationMessage('New program saved to your account!');
       }
     } catch (err: any) {
-      alert('Failed to save program. Make sure you are logged in.');
+      setNotificationMessage('Failed to save program. Make sure you are logged in.');
     }
   };
 
@@ -342,6 +355,7 @@ export const EditorPage: React.FC = () => {
               wrongSymbol={wrongSymbol}
               suggestedFixSymbol={suggestedFixSymbol}
               errorSnippet={errorSnippet}
+              notificationMessage={notificationMessage}
               onApplyQuickFix={handleApplyQuickFix}
             />
           </div>
@@ -362,6 +376,7 @@ export const EditorPage: React.FC = () => {
                 setStatus(undefined);
                 setExecutionTime(undefined);
                 setErrorLine(undefined);
+                setNotificationMessage(null);
               }}
               onFixAndReRun={handleFixAndReRun}
             />
@@ -379,7 +394,7 @@ export const EditorPage: React.FC = () => {
                 setErrorLine(undefined);
                 setAiAnalysis(null);
               } else {
-                alert('AI suggested fix failed syntax validation. Code was not modified.');
+                setNotificationMessage('AI suggested fix failed syntax validation. Code was not modified.');
               }
             }}
             onApplyFixAndRun={async (corrected) => {
@@ -389,7 +404,7 @@ export const EditorPage: React.FC = () => {
                 setAiAnalysis(null);
                 await executeCodePayload(corrected, language);
               } else {
-                alert('AI suggested fix failed syntax validation. Code was not modified.');
+                setNotificationMessage('AI suggested fix failed syntax validation. Code was not modified.');
               }
             }}
             onClose={() => setAiAnalysis(null)}

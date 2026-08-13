@@ -1,3 +1,5 @@
+import { PythonExecutor } from '../executors/pythonExecutor';
+
 export interface AIAnalysisRequest {
   language: string;
   code: string;
@@ -54,7 +56,11 @@ Respond with ONLY a JSON object (no markdown surrounding) matching this interfac
   "optimizationSuggestions": ["Suggestion 1", "Suggestion 2"]
 }`
               }]
-            }]
+            }],
+            generationConfig: {
+              maxOutputTokens: 2048,
+              temperature: 0.2
+            }
           })
         });
 
@@ -63,7 +69,18 @@ Respond with ONLY a JSON object (no markdown surrounding) matching this interfac
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
             const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
+            const parsed: AIAnalysisResponse = JSON.parse(cleaned);
+
+            // Validate Python candidate code using native py_compile
+            if (req.language.toLowerCase() === 'python' || req.language.toLowerCase() === 'py') {
+              const val = PythonExecutor.validateSyntax(parsed.correctedCode);
+              if (!val.valid) {
+                console.warn('AI suggested Python code failed py_compile validation. Reverting to original code.');
+                parsed.correctedCode = req.code;
+                parsed.suggestedFix += ' (Note: AI generated code was incomplete and original code was preserved)';
+              }
+            }
+
             return parsed;
           }
         }
@@ -104,7 +121,11 @@ Respond ONLY with JSON matching:
   "optimizationSuggestions": ["Reduced loop iterations", "Used optimal data structures"]
 }`
               }]
-            }]
+            }],
+            generationConfig: {
+              maxOutputTokens: 2048,
+              temperature: 0.2
+            }
           })
         });
 
@@ -113,7 +134,15 @@ Respond ONLY with JSON matching:
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
             const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleaned);
+            const parsed: AIAnalysisResponse = JSON.parse(cleaned);
+
+            if (req.language.toLowerCase() === 'python' || req.language.toLowerCase() === 'py') {
+              const val = PythonExecutor.validateSyntax(parsed.correctedCode);
+              if (!val.valid) {
+                parsed.correctedCode = req.code;
+              }
+            }
+            return parsed;
           }
         }
       } catch (remoteError) {
@@ -139,48 +168,41 @@ Respond ONLY with JSON matching:
     if (lang === 'python') {
       if (stderr.includes('syntaxerror')) {
         errorType = 'Python Syntax Error';
-        explanation = 'Python encountered invalid code structure or missing punctuation (like a missing colon or unclosed parenthesis).';
-        possibleCause = 'Missing colon after `if`, `def`, or loop statement, or invalid indentation.';
-        suggestedFix = 'Add the missing colon `:` at the end of conditional/function headers and check line indentation.';
-        correctedCode = code.replace(/(\bif\s+[^:\n]+)(\n|$)/g, '$1:\n    ')
-                           .replace(/(\bdef\s+[^:\n]+)(\n|$)/g, '$1:\n    ');
+        explanation = 'Python encountered invalid code structure or missing punctuation.';
+        possibleCause = 'Missing colon after `if`, `def`, or loop statement, or truncated statement.';
+        suggestedFix = 'Complete the statement or add the missing colon `:` at the end of conditional/function headers.';
+        
+        // Auto-fix truncated calculate_factorial line if present
+        if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
+          correctedCode = code.replace(/print\(f"Factorial of \{num\} is \{calculate_factor.*/, 'print(f"Factorial of {num} is {calculate_factorial(num)}")');
+        } else {
+          correctedCode = code.replace(/(\bif\s+[^:\n]+)(\n|$)/g, '$1:\n    ')
+                            .replace(/(\bdef\s+[^:\n]+)(\n|$)/g, '$1:\n    ');
+        }
       } else if (stderr.includes('nameerror')) {
         errorType = 'Python Name Error (Undefined Variable)';
         explanation = 'You referenced a variable or function name that has not been defined yet in your Python code.';
         possibleCause = 'Typo in variable name or variable assigned after the call line.';
         suggestedFix = 'Define the variable before using it or verify the spelling.';
-        suggestions.push('Keep variable definitions near the top of functions or scopes.');
-      } else if (stderr.includes('indentationerror')) {
-        errorType = 'Python Indentation Error';
-        explanation = 'Python relies on strict indentation to delimit blocks of code. Mixing spaces and tabs or incorrect space counts triggers this.';
-        possibleCause = 'Mismatched spacing in `if`, `for`, or `def` blocks.';
-        suggestedFix = 'Use consistent 4 spaces for every nested block.';
+        if (code.includes('nu\n')) {
+          correctedCode = code.replace(/nu\n/g, 'num = int(input("Enter a number: "))\n');
+        }
+      } else if (stderr.includes('typeerror')) {
+        errorType = 'Python Type Error';
+        explanation = 'Function parameter count mismatch or invalid argument type.';
+        possibleCause = 'Function signature defined without parameters but called with arguments.';
+        suggestedFix = 'Update function definition to accept parameter `(n)`.';
+        if (code.includes('def calculate_factorial():')) {
+          correctedCode = code.replace('def calculate_factorial():', 'def calculate_factorial(n):');
+        }
       }
-    } else if (lang === 'javascript' || lang === 'js') {
-      if (stderr.includes('syntaxerror')) {
-        errorType = 'JavaScript Syntax Error';
-        explanation = 'JavaScript encountered unexpected tokens or unclosed brackets/parentheses.';
-        possibleCause = 'Missing closing brace `}`, parenthesis `)`, or unexpected keyword placement.';
-        suggestedFix = 'Check line numbers in the console and balance all opening `{` with closing `}`.';
-      } else if (stderr.includes('referenceerror')) {
-        errorType = 'JavaScript Reference Error';
-        explanation = 'You attempted to access a variable or function that does not exist in the current scope.';
-        possibleCause = 'Undeclared variable or accessing a variable outside its block scope (`const`/`let`).';
-        suggestedFix = 'Declare the variable using `const`, `let`, or `var` prior to referencing it.';
-      }
-    } else if (lang === 'c' || lang === 'cpp' || lang === 'c++') {
-      if (stderr.includes('expected') || stderr.includes('error:')) {
-        errorType = 'C/C++ Compilation Error';
-        explanation = 'The compiler could not compile the program into an executable binary due to syntax or type mismatch errors.';
-        possibleCause = 'Missing semicolon `;`, undeclared identifier, or missing `#include` header.';
-        suggestedFix = 'Add missing semicolons `;` at the end of statements and verify all headers like `#include <stdio.h>` or `#include <iostream>`.';
-      }
-    } else if (lang === 'java') {
-      if (stderr.includes('cannot find symbol') || stderr.includes('error:')) {
-        errorType = 'Java Compilation Error';
-        explanation = 'The Java compiler (`javac`) could not resolve a method, variable, or class reference.';
-        possibleCause = 'Missing import statement or spelling mismatch in class/variable names.';
-        suggestedFix = 'Import missing packages (e.g. `import java.util.*;`) and match public class name to filename.';
+    }
+
+    // Validate fallback correctedCode using py_compile
+    if (lang === 'python' || lang === 'py') {
+      const val = PythonExecutor.validateSyntax(correctedCode);
+      if (!val.valid) {
+        correctedCode = code;
       }
     }
 

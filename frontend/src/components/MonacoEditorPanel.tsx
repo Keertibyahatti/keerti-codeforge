@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
-import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2 } from 'lucide-react';
+import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2, Info } from 'lucide-react';
 
 interface MonacoEditorPanelProps {
   language: string;
@@ -23,6 +23,7 @@ interface MonacoEditorPanelProps {
   wrongSymbol?: string;
   suggestedFixSymbol?: string;
   errorSnippet?: string;
+  notificationMessage?: string | null;
   onApplyQuickFix?: () => void;
 }
 
@@ -108,6 +109,7 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   wrongSymbol,
   suggestedFixSymbol,
   errorSnippet,
+  notificationMessage,
   onApplyQuickFix
 }) => {
   const editorRef = useRef<any>(null);
@@ -293,6 +295,14 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
         </div>
 
       </div>
+
+      {/* In-App Toast / Notification Banner */}
+      {notificationMessage && (
+        <div className="bg-amber-950/80 border-b border-amber-500/40 px-4 py-2 flex items-center gap-2 text-xs text-amber-200">
+          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{notificationMessage}</span>
+        </div>
+      )}
 
       {/* Interactive Error Highlight Banner */}
       {errorLine && errorLine > 0 && (
