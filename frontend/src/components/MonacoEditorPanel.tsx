@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
-import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2, Info } from 'lucide-react';
+import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2, Info, Maximize2, Minimize2, Type, WrapText } from 'lucide-react';
 
 interface MonacoEditorPanelProps {
   language: string;
@@ -115,6 +115,10 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<Monaco | null>(null);
 
+  const [fontSize, setFontSize] = useState<number>(14);
+  const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
   const handleEditorMount = (editor: any, monaco: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -186,7 +190,7 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+    <div className={`flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl ${isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : ''}`}>
       
       {/* Editor Control Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-950/80 border-b border-slate-800">
@@ -227,6 +231,43 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
         {/* Action Button Bar */}
         <div className="flex items-center gap-2">
           
+          {/* Font Size Selector */}
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1 rounded-lg text-slate-300 text-xs">
+            <Type className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer"
+            >
+              <option value={12} className="bg-slate-900">12px</option>
+              <option value={14} className="bg-slate-900">14px</option>
+              <option value={16} className="bg-slate-900">16px</option>
+              <option value={18} className="bg-slate-900">18px</option>
+            </select>
+          </div>
+
+          {/* Word Wrap Toggle */}
+          <button
+            onClick={() => setWordWrap(wordWrap === 'on' ? 'off' : 'on')}
+            title="Toggle Word Wrap"
+            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+              wordWrap === 'on'
+                ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <WrapText className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Fullscreen Toggle */}
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Editor'}
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-colors"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
           {/* Run Code Button */}
           <button
             onClick={onRun}
@@ -367,13 +408,13 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
           onChange={(val) => onChange(val || '')}
           onMount={handleEditorMount}
           options={{
-            fontSize: 14,
+            fontSize: fontSize,
             fontFamily: "'Fira Code', monospace",
             minimap: { enabled: true },
             scrollBeyondLastLine: false,
             automaticLayout: true,
             tabSize: 4,
-            wordWrap: 'on',
+            wordWrap: wordWrap,
             lineNumbers: 'on',
             renderWhitespace: 'selection',
             bracketPairColorization: { enabled: true }
