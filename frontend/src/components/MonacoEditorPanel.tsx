@@ -346,13 +346,13 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
           </div>
 
           {/* Quick Auto-Fix Action Button */}
-          {onApplyQuickFix && (suggestedFixSymbol || missingSymbol || missingOperand || wrongSymbol) && (
+          {onApplyQuickFix && (
             <button
               onClick={onApplyQuickFix}
               className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-md transition-all border border-emerald-400/30 cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
-              Auto-Fix Line {errorLine} ({wrongSymbol && !suggestedFixSymbol ? `Declare '${wrongSymbol}'` : missingOperand ? `Add '${missingOperand}${missingSymbol || ''}'` : suggestedFixSymbol ? `'${wrongSymbol}' → '${suggestedFixSymbol}'` : `Add '${missingSymbol}'`})
+              Auto-Fix Line {errorLine} & Re-Run
             </button>
           )}
         </div>
