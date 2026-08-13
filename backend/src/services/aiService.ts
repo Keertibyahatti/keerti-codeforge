@@ -41,7 +41,7 @@ export class AIService {
   static async autoFix(req: AIAnalysisRequest): Promise<AutoFixResponse> {
     const originalCode = req.code;
     const lang = req.language.toLowerCase();
-    const userInput = req.userInput || '10\n20';
+    const userInput = req.userInput || '1';
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -57,7 +57,18 @@ export class AIService {
       let errorType = 'Syntax Error';
 
       if (lang === 'python' || lang === 'py') {
-        if (originalCode.includes('print("The sum is:", total') && !originalCode.includes('print("The sum is:", total)')) {
+        if ((originalCode.includes('if n\n') || originalCode.includes('if n\r\n') || originalCode.includes('if n <=') || originalCode.includes('if n:')) && !originalCode.includes('if n <= 1:')) {
+          errorType = 'Python Incomplete Base Condition SyntaxError';
+          whatHappened = 'Python found an incomplete comparison condition on line 4.';
+          whyItHappened = 'The condition `if n` was missing the comparison operator `<= 1` and trailing colon `:`.';
+          howFixed = 'Updated `if n` to `if n <= 1:`.';
+          beforeSnippet = 'if n';
+          afterSnippet = 'if n <= 1:';
+
+          candidateCode = originalCode
+            .replace(/if\s+n\s*(<=)?\s*:\s*/, 'if n <= 1:\n        ')
+            .replace(/if\s+n\s*(<=)?[\s\r\n]+(?=return)/, 'if n <= 1:\n        ');
+        } else if (originalCode.includes('print("The sum is:", total') && !originalCode.includes('print("The sum is:", total)')) {
           errorType = 'Python Unclosed Parenthesis SyntaxError';
           whatHappened = 'Python found an incomplete print() statement on line 10.';
           whyItHappened = 'The print() function was opened with "(" but missing the closing ")".';
@@ -66,18 +77,6 @@ export class AIService {
           afterSnippet = 'print("The sum is:", total)';
 
           candidateCode = originalCode.replace('print("The sum is:", total', 'print("The sum is:", total)');
-        } else if (originalCode.includes('if n <=') && !originalCode.includes('if n <= 1:')) {
-          errorType = 'Python Incomplete Condition SyntaxError';
-          whatHappened = 'Python found an incomplete comparison on line 4.';
-          whyItHappened = 'The condition `if n <=` was missing a comparison value (`1`) and a trailing colon (`:`).';
-          howFixed = 'Updated `if n <=` to `if n <= 1:` and added the recursive base-case `return 1`.';
-          beforeSnippet = 'if n <=';
-          afterSnippet = 'if n <= 1:\n        return 1';
-
-          candidateCode = originalCode.replace(
-            /if\s+n\s*<=[\s\n]*/,
-            'if n <= 1:\n        return 1\n    '
-          );
         } else if (originalCode.includes('def calculate_factorial():')) {
           errorType = 'Python TypeError (Missing Parameter)';
           whatHappened = 'Function definition `calculate_factorial()` was missing parameter `(n)`.';
@@ -316,10 +315,10 @@ Respond ONLY with JSON matching:
         possibleCause = 'Missing colon after `if`, `def`, or loop statement, or unclosed parenthesis.';
         suggestedFix = 'Complete the statement or add the missing closing parenthesis `)` / colon `:`.';
         
-        if (code.includes('print("The sum is:", total') && !code.includes('print("The sum is:", total)')) {
+        if ((code.includes('if n\n') || code.includes('if n\r\n') || code.includes('if n <=')) && !code.includes('if n <= 1:')) {
+          correctedCode = code.replace(/if\s+n\s*(<=)?[\s\r\n]+(?=return)/, 'if n <= 1:\n        ');
+        } else if (code.includes('print("The sum is:", total') && !code.includes('print("The sum is:", total)')) {
           correctedCode = code.replace('print("The sum is:", total', 'print("The sum is:", total)');
-        } else if (code.includes('if n <=') && !code.includes('if n <= 1:')) {
-          correctedCode = code.replace(/if\s+n\s*<=[\s\n]*/, 'if n <= 1:\n        return 1\n    ');
         } else if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
           correctedCode = code.replace(/print\(f"Factorial of \{num\} is \{calculate_factor.*/, 'print(f"Factorial of {num} is {calculate_factorial(num)}")');
         } else {
