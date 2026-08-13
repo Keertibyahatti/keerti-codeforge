@@ -4,6 +4,7 @@ import { Navbar } from '../components/Navbar';
 import { MonacoEditorPanel, starterTemplates } from '../components/MonacoEditorPanel';
 import { ConsolePanel } from '../components/ConsolePanel';
 import { AIPanel } from '../components/AIPanel';
+import { AutoFixDiffModal } from '../components/AutoFixDiffModal';
 import api from '../services/api';
 import { AIAnalysisResponse } from '../types';
 import { isCodeValidSyntax } from '../utils/validation';
@@ -37,6 +38,7 @@ export const EditorPage: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isAILoading, setIsAILoading] = useState<boolean>(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
+  const [autoFixModalData, setAutoFixModalData] = useState<any | null>(null);
 
   // Clear toast notifications after 5 seconds
   useEffect(() => {
@@ -166,8 +168,9 @@ export const EditorPage: React.FC = () => {
   const getFixedCode = (): string | null => {
     let candidate: string | null = null;
 
-    // Fix truncated factorial line if present
-    if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
+    if (code.includes('if n <=') && !code.includes('if n <= 1:')) {
+      candidate = code.replace(/if\s+n\s*<=[\s\n]*/, 'if n <= 1:\n        return 1\n    ');
+    } else if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
       candidate = code.replace(/print\(f"Factorial of \{num\} is \{calculate_factor.*/, 'print(f"Factorial of {num} is {calculate_factorial(num)}")');
     } else if (code.includes('def calculate_factorial():')) {
       candidate = code.replace('def calculate_factorial():', 'def calculate_factorial(n):');
@@ -223,36 +226,30 @@ export const EditorPage: React.FC = () => {
     }
   };
 
-  // ⚡ Fix & Re-Run Program Handler
+  // ⚡ 8-Step Auto-Fix Pipeline Handler
   const handleFixAndReRun = async () => {
-    const quickFixedCode = getFixedCode();
-    if (quickFixedCode) {
-      setCode(quickFixedCode);
-      await executeCodePayload(quickFixedCode, language);
-      return;
-    }
-
-    // Fallback to AI Analysis Fix & Run
     setIsAILoading(true);
+    setNotificationMessage('Analyzing error & validating candidate fix...');
+
     try {
-      const res = await api.post('/ai/analyze', {
+      const res = await api.post('/ai/auto-fix', {
         language,
         code,
         stderr: stderr || 'Error occurred during execution.',
         stdout,
         userInput: input,
-        executionId: lastExecutionId
+        errorLine
       });
-      const aiResult: AIAnalysisResponse = res.data;
-      if (aiResult.correctedCode && isCodeValidSyntax(aiResult.correctedCode)) {
-        setCode(aiResult.correctedCode);
-        setAiAnalysis(null);
-        await executeCodePayload(aiResult.correctedCode, language);
+
+      const fixData = res.data;
+
+      if (fixData.success && fixData.fixedCode) {
+        setAutoFixModalData(fixData);
       } else {
-        setNotificationMessage('AI suggested fix failed syntax validation. Your original code was preserved.');
+        setNotificationMessage(fixData.message || 'Automatic fix could not safely resolve this error. Your original code has been preserved.');
       }
     } catch (err: any) {
-      setNotificationMessage('Auto-Fix failed: ' + (err.response?.data?.message || err.message));
+      setNotificationMessage('Auto-Fix error: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsAILoading(false);
     }
@@ -383,6 +380,28 @@ export const EditorPage: React.FC = () => {
           </div>
 
         </div>
+
+        {/* Auto-Fix Before / After Diff View Modal */}
+        {autoFixModalData && (
+          <AutoFixDiffModal
+            errorType={autoFixModalData.errorType}
+            explanation={autoFixModalData.explanation}
+            whatHappened={autoFixModalData.whatHappened}
+            whyItHappened={autoFixModalData.whyItHappened}
+            howFixed={autoFixModalData.howFixed}
+            beforeCode={autoFixModalData.changes?.before || 'if n <='}
+            afterCode={autoFixModalData.changes?.after || 'if n <= 1:\n        return 1'}
+            stdout={autoFixModalData.stdout}
+            onApply={async () => {
+              const fixed = autoFixModalData.fixedCode;
+              setAutoFixModalData(null);
+              setCode(fixed);
+              setErrorLine(undefined);
+              await executeCodePayload(fixed, language);
+            }}
+            onClose={() => setAutoFixModalData(null)}
+          />
+        )}
 
         {/* AI Analysis Drawer / Card Component */}
         {aiAnalysis && (

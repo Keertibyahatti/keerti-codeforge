@@ -2,6 +2,30 @@ import { Request, Response } from 'express';
 import { AIService } from '../services/aiService';
 import { prisma } from '../utils/prisma';
 
+export const autoFixCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { language, code, stderr, stdout, userInput, errorLine } = req.body;
+
+    if (!language || !code) {
+      res.status(400).json({ error: 'Validation Error', message: 'Language and code are required' });
+      return;
+    }
+
+    const fixResult = await AIService.autoFix({
+      language,
+      code,
+      stderr: stderr || '',
+      stdout: stdout || '',
+      userInput: userInput || '1',
+      errorLine
+    });
+
+    res.json(fixResult);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Auto-Fix Error', message: error.message });
+  }
+};
+
 export const analyzeError = async (req: Request, res: Response): Promise<void> => {
   try {
     const { language, code, stderr, stdout, userInput, executionId } = req.body;
