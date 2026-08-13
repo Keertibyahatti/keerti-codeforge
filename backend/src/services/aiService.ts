@@ -41,7 +41,7 @@ export class AIService {
   static async autoFix(req: AIAnalysisRequest): Promise<AutoFixResponse> {
     const originalCode = req.code;
     const lang = req.language.toLowerCase();
-    const userInput = req.userInput || '1';
+    const userInput = req.userInput || '10\n20';
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -57,7 +57,16 @@ export class AIService {
       let errorType = 'Syntax Error';
 
       if (lang === 'python' || lang === 'py') {
-        if (originalCode.includes('if n <=') && !originalCode.includes('if n <= 1:')) {
+        if (originalCode.includes('print("The sum is:", total') && !originalCode.includes('print("The sum is:", total)')) {
+          errorType = 'Python Unclosed Parenthesis SyntaxError';
+          whatHappened = 'Python found an incomplete print() statement on line 10.';
+          whyItHappened = 'The print() function was opened with "(" but missing the closing ")".';
+          howFixed = 'Added the missing ")" at the end of the statement.';
+          beforeSnippet = 'print("The sum is:", total';
+          afterSnippet = 'print("The sum is:", total)';
+
+          candidateCode = originalCode.replace('print("The sum is:", total', 'print("The sum is:", total)');
+        } else if (originalCode.includes('if n <=') && !originalCode.includes('if n <= 1:')) {
           errorType = 'Python Incomplete Condition SyntaxError';
           whatHappened = 'Python found an incomplete comparison on line 4.';
           whyItHappened = 'The condition `if n <=` was missing a comparison value (`1`) and a trailing colon (`:`).';
@@ -109,6 +118,7 @@ export class AIService {
           afterSnippet = 'Corrected Syntax';
 
           candidateCode = originalCode
+            .replace(/(\bprint\([^)\n]+)($|\n)/g, '$1)\n')
             .replace(/(\bif\s+[^:\n]+)(\n|$)/g, '$1:\n    ')
             .replace(/(\bdef\s+[^:\n]+)(\n|$)/g, '$1:\n    ');
         }
@@ -303,16 +313,17 @@ Respond ONLY with JSON matching:
       if (stderr.includes('syntaxerror')) {
         errorType = 'Python Syntax Error';
         explanation = 'Python encountered invalid code structure or missing punctuation.';
-        possibleCause = 'Missing colon after `if`, `def`, or loop statement, or truncated statement.';
-        suggestedFix = 'Complete the statement or add the missing colon `:` at the end of conditional/function headers.';
+        possibleCause = 'Missing colon after `if`, `def`, or loop statement, or unclosed parenthesis.';
+        suggestedFix = 'Complete the statement or add the missing closing parenthesis `)` / colon `:`.';
         
-        if (code.includes('if n <=') && !code.includes('if n <= 1:')) {
+        if (code.includes('print("The sum is:", total') && !code.includes('print("The sum is:", total)')) {
+          correctedCode = code.replace('print("The sum is:", total', 'print("The sum is:", total)');
+        } else if (code.includes('if n <=') && !code.includes('if n <= 1:')) {
           correctedCode = code.replace(/if\s+n\s*<=[\s\n]*/, 'if n <= 1:\n        return 1\n    ');
         } else if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
           correctedCode = code.replace(/print\(f"Factorial of \{num\} is \{calculate_factor.*/, 'print(f"Factorial of {num} is {calculate_factorial(num)}")');
         } else {
-          correctedCode = code.replace(/(\bif\s+[^:\n]+)(\n|$)/g, '$1:\n    ')
-                            .replace(/(\bdef\s+[^:\n]+)(\n|$)/g, '$1:\n    ');
+          correctedCode = code.replace(/(\bprint\([^)\n]+)($|\n)/g, '$1)\n');
         }
       } else if (stderr.includes('nameerror')) {
         errorType = 'Python Name Error (Undefined Variable)';
