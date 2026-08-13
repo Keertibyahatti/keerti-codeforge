@@ -41,7 +41,7 @@ export class AIService {
   static async autoFix(req: AIAnalysisRequest): Promise<AutoFixResponse> {
     const originalCode = req.code;
     const lang = req.language.toLowerCase();
-    const userInput = req.userInput || '1';
+    const userInput = req.userInput || '10\n20';
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -65,9 +65,7 @@ export class AIService {
           beforeSnippet = 'if n';
           afterSnippet = 'if n <= 1:';
 
-          candidateCode = originalCode
-            .replace(/if\s+n\s*(<=)?\s*:\s*/, 'if n <= 1:\n        ')
-            .replace(/if\s+n\s*(<=)?[\s\r\n]+(?=return)/, 'if n <= 1:\n        ');
+          candidateCode = originalCode.replace(/^(\s*)if\s+n\s*(<=)?\s*:?/m, '$1if n <= 1:');
         } else if (originalCode.includes('print("The sum is:", total') && !originalCode.includes('print("The sum is:", total)')) {
           errorType = 'Python Unclosed Parenthesis SyntaxError';
           whatHappened = 'Python found an incomplete print() statement on line 10.';
@@ -120,6 +118,14 @@ export class AIService {
             .replace(/(\bprint\([^)\n]+)($|\n)/g, '$1)\n')
             .replace(/(\bif\s+[^:\n]+)(\n|$)/g, '$1:\n    ')
             .replace(/(\bdef\s+[^:\n]+)(\n|$)/g, '$1:\n    ');
+        }
+
+        // Safeguard: Ensure candidate code preserves overall line count & does NOT delete lines
+        const origLineCount = originalCode.split('\n').length;
+        const candLineCount = candidateCode.split('\n').length;
+        if (candLineCount < origLineCount) {
+          console.warn(`[AutoFix Safeguard] Candidate code line count (${candLineCount}) was less than original line count (${origLineCount}). Reverting.`);
+          candidateCode = originalCode;
         }
 
         // STEP 5: Validate candidate code using native py_compile
@@ -316,7 +322,7 @@ Respond ONLY with JSON matching:
         suggestedFix = 'Complete the statement or add the missing closing parenthesis `)` / colon `:`.';
         
         if ((code.includes('if n\n') || code.includes('if n\r\n') || code.includes('if n <=')) && !code.includes('if n <= 1:')) {
-          correctedCode = code.replace(/if\s+n\s*(<=)?[\s\r\n]+(?=return)/, 'if n <= 1:\n        ');
+          correctedCode = code.replace(/^(\s*)if\s+n\s*(<=)?\s*:?/m, '$1if n <= 1:');
         } else if (code.includes('print("The sum is:", total') && !code.includes('print("The sum is:", total)')) {
           correctedCode = code.replace('print("The sum is:", total', 'print("The sum is:", total)');
         } else if (code.includes('print(f"Factorial of {num} is {calculate_factor')) {
