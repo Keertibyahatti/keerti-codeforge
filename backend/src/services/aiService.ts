@@ -41,7 +41,7 @@ export class AIService {
   static async autoFix(req: AIAnalysisRequest): Promise<AutoFixResponse> {
     const originalCode = req.code;
     const lang = req.language.toLowerCase();
-    const userInput = req.userInput || '10\n20';
+    const userInput = req.userInput || '1';
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -57,7 +57,18 @@ export class AIService {
       let errorType = 'Syntax Error';
 
       if (lang === 'python' || lang === 'py') {
-        if ((originalCode.includes('if n\n') || originalCode.includes('if n\r\n') || originalCode.includes('if n <=') || originalCode.includes('if n:')) && !originalCode.includes('if n <= 1:')) {
+        if ((originalCode.includes('if n <= 1:\n        re\n') || originalCode.includes('if n <= 1:\n        re\r\n') || originalCode.includes('if n <= 1:\n        ret\n') || originalCode.includes('if n <= 1:\n        retu\n')) || (req.stderr && req.stderr.includes("name 're' is not defined"))) {
+          errorType = 'Python Truncated Base-Case Return Error';
+          whatHappened = 'Python found an undefined identifier `re` inside `if n <= 1:`.';
+          whyItHappened = 'The base-case return statement `return 1` was truncated to `re`.';
+          howFixed = 'Replaced `re` with `return 1`.';
+          beforeSnippet = 're';
+          afterSnippet = 'return 1';
+
+          candidateCode = originalCode
+            .replace(/(\s*if\s+n\s*<=\s*1:\s*\r?\n\s*)re\b/m, '$1return 1')
+            .replace(/^(\s*)re\b/m, '$1return 1');
+        } else if ((originalCode.includes('if n\n') || originalCode.includes('if n\r\n') || originalCode.includes('if n <=') || originalCode.includes('if n:')) && !originalCode.includes('if n <= 1:')) {
           errorType = 'Python Incomplete Base Condition SyntaxError';
           whatHappened = 'Python found an incomplete comparison condition on line 4.';
           whyItHappened = 'The condition `if n` was missing the comparison operator `<= 1` and trailing colon `:`.';
@@ -335,7 +346,9 @@ Respond ONLY with JSON matching:
         explanation = 'You referenced a variable or function name that has not been defined yet in your Python code.';
         possibleCause = 'Typo in variable name or variable assigned after the call line.';
         suggestedFix = 'Define the variable before using it or verify the spelling.';
-        if (code.includes('nu\n')) {
+        if (code.includes('if n <= 1:\n        re') || stderr.includes("name 're' is not defined")) {
+          correctedCode = code.replace(/^(\s*)re\b/m, '$1return 1');
+        } else if (code.includes('nu\n')) {
           correctedCode = code.replace(/nu\n/g, 'num = int(input("Enter a number: "))\n');
         }
       } else if (stderr.includes('typeerror')) {

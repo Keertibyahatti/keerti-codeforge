@@ -23,8 +23,8 @@ export class PythonExecutor implements BaseExecutor {
       return { valid: true };
     } catch (err: any) {
       const cleanStderr = stripAnsi(err.stderr ? err.stderr.toString() : err.message || '');
-      const lineMatch = cleanStderr.match(/line\s+(\d+)/i);
-      const line = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
+      const lineMatches = [...cleanStderr.matchAll(/line\s+(\d+)/gi)];
+      const line = lineMatches.length > 0 ? parseInt(lineMatches[lineMatches.length - 1][1], 10) : undefined;
       fs.rmSync(tempDir, { recursive: true, force: true });
       return { valid: false, error: cleanStderr, line };
     }
@@ -138,10 +138,11 @@ export class PythonExecutor implements BaseExecutor {
             status = 'runtime_error';
           }
 
-          // Parse line number from Python Traceback (e.g., line 5)
-          const lineMatch = cleanStderr.match(/line\s+(\d+)/i);
-          if (lineMatch) {
-            errorLine = parseInt(lineMatch[1], 10);
+          // Parse line number from Python Traceback — extract LAST frame where exception actually occurred
+          const lineMatches = [...cleanStderr.matchAll(/line\s+(\d+)/gi)];
+          if (lineMatches.length > 0) {
+            const lastMatch = lineMatches[lineMatches.length - 1];
+            errorLine = parseInt(lastMatch[1], 10);
             const lines = options.code.split('\n');
             if (errorLine && errorLine <= lines.length) {
               errorSnippet = lines[errorLine - 1].trim();
@@ -156,7 +157,7 @@ export class PythonExecutor implements BaseExecutor {
             suggestedFixSymbol = `def ${funcName}(n)`;
           }
 
-          // Parse NameError (e.g. NameError: name 'nu' is not defined)
+          // Parse NameError (e.g. NameError: name 're' is not defined)
           if (!wrongSymbol) {
             const nameErrorMatch = cleanStderr.match(/NameError:\s*name\s*['"]([^'"]+)['"]\s*is not defined/i);
             if (nameErrorMatch) {
