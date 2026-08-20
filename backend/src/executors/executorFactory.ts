@@ -8,8 +8,11 @@ import { JavaExecutor } from './javaExecutor';
 export class ExecutorFactory {
   private static executors: Record<string, BaseExecutor> = {
     python: new PythonExecutor(),
+    python3: new PythonExecutor(),
     javascript: new JSExecutor(),
     js: new JSExecutor(),
+    typescript: new JSExecutor(),
+    ts: new JSExecutor(),
     c: new CExecutor(),
     cpp: new CppExecutor(),
     'c++': new CppExecutor(),
@@ -20,7 +23,7 @@ export class ExecutorFactory {
     const lang = language.toLowerCase().trim();
     const executor = this.executors[lang];
     if (!executor) {
-      throw new Error(`Unsupported programming language: '${language}'. Supported: python, javascript, c, cpp, java.`);
+      throw new Error(`Unsupported programming language: '${language}'. Supported: python, javascript, typescript, c, cpp, java.`);
     }
     return executor;
   }

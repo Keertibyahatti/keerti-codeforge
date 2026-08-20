@@ -22,19 +22,40 @@ export class JSExecutor implements BaseExecutor {
       let stdout = '';
       let stderr = '';
       let isTimedOut = false;
+      let isStopped = false;
       let isOutputExceeded = false;
+
+      if (options.onChildSpawn) {
+        options.onChildSpawn({
+          killFn: () => {
+            isStopped = true;
+            try { child.kill('SIGKILL'); } catch {}
+          },
+          writeStdin: (data: string) => {
+            try {
+              const text = data.endsWith('\n') ? data : data + '\n';
+              child.stdin.write(text);
+            } catch (e) {
+              console.error('Error writing to Node.js process stdin:', e);
+            }
+          }
+        });
+      }
 
       const timer = setTimeout(() => {
         isTimedOut = true;
         child.kill('SIGKILL');
       }, timeoutMs);
 
-      if (options.input) {
-        child.stdin.write(options.input);
-        child.stdin.end();
-      } else {
-        child.stdin.end();
+      // Pass input to child process stdin if provided
+      let formattedInput = options.input || '';
+      if (formattedInput) {
+        if (!formattedInput.endsWith('\n')) {
+          formattedInput += '\n';
+        }
+        child.stdin.write(formattedInput);
       }
+      child.stdin.end();
 
       child.stdout.on('data', (data) => {
         stdout += data.toString();
@@ -54,14 +75,59 @@ export class JSExecutor implements BaseExecutor {
         const executionTime = Date.now() - startTime;
         const cleanStderr = stripAnsi(stderr);
 
+        let finalStdout = stdout;
+
+        // If batch stdin was provided, format prompt lines with typed input values for readable console output
+        if (formattedInput && formattedInput.trim()) {
+          const inputLines = formattedInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          if (inputLines.length > 0) {
+            let inputIdx = 0;
+            const rawLines = finalStdout.split(/\r?\n/);
+            const formattedLines: string[] = [];
+            let inResultSection = false;
+
+            for (const line of rawLines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith('=== RESULT') || trimmed.startsWith('=== SALARY') || trimmed.startsWith('=== OUTPUT') || trimmed.startsWith('Result:')) {
+                inResultSection = true;
+              }
+
+              const isPrompt = !inResultSection && inputIdx < inputLines.length && (
+                /:\s*$/.test(trimmed) || /\?\s*$/.test(trimmed) || />\s*$/.test(trimmed)
+              ) && (
+                /Enter|input|name|salary|bonus|number|age|value|first|second|third|choose|select/i.test(trimmed) ||
+                trimmed.length < 50
+              );
+
+              formattedLines.push(line);
+              if (isPrompt && inputIdx < inputLines.length) {
+                formattedLines.push(`> ${inputLines[inputIdx++]}`);
+              }
+            }
+
+            finalStdout = formattedLines.join('\n');
+            finalStdout = finalStdout.replace(/\n{3,}/g, '\n\n').trim();
+          }
+        }
+
         try {
           fs.rmSync(tempDir, { recursive: true, force: true });
         } catch {}
 
+        if (isStopped) {
+          return resolve({
+            status: 'stopped',
+            stdout: finalStdout,
+            stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution stopped by user.',
+            executionTime,
+            exitCode: null
+          });
+        }
+
         if (isTimedOut) {
           return resolve({
             status: 'timeout',
-            stdout,
+            stdout: finalStdout,
             stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution timed out (exceeded limit of ' + timeoutMs + 'ms).',
             executionTime,
             exitCode: null
@@ -71,7 +137,7 @@ export class JSExecutor implements BaseExecutor {
         if (isOutputExceeded) {
           return resolve({
             status: 'output_limit',
-            stdout,
+            stdout: finalStdout,
             stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution output exceeded 1024 KB buffer limit.',
             executionTime,
             exitCode: code ?? 1
@@ -90,7 +156,7 @@ export class JSExecutor implements BaseExecutor {
 
         resolve({
           status,
-          stdout,
+          stdout: finalStdout,
           stderr: cleanStderr,
           executionTime,
           exitCode: code ?? 0

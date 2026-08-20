@@ -58,4 +58,10 @@ export interface AIAnalysisResponse {
   suggestedFix: string;
   correctedCode: string;
   optimizationSuggestions: string[];
+  isFallback?: boolean;
+  complexity?: {
+    time: string;
+    space: string;
+  };
+  bestPractices?: string[];
 }

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import Editor, { Monaco } from '@monaco-editor/react';
-import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2, Info, Maximize2, Minimize2, Type, WrapText } from 'lucide-react';
+import { Play, Square, Save, Sparkles, Wand2, RefreshCw, AlertTriangle, Zap, CheckCircle2, Info, Maximize2, Minimize2, Type, WrapText, Copy, Trash2, BookOpen } from 'lucide-react';
 
 interface MonacoEditorPanelProps {
   language: string;
@@ -25,6 +25,8 @@ interface MonacoEditorPanelProps {
   errorSnippet?: string;
   notificationMessage?: string | null;
   onApplyQuickFix?: () => void;
+  onLoadExample?: (code: string, defaultInput?: string) => void;
+  onClearCode?: () => void;
 }
 
 export const starterTemplates: Record<string, string> = {
@@ -88,6 +90,196 @@ public class Main {
 `
 };
 
+export const demoExamples: Record<string, { label: string; lang: string; code: string; defaultInput: string }[]> = {
+  python: [
+    {
+      label: 'Factorial Calculator',
+      lang: 'python',
+      defaultInput: '5',
+      code: `def calculate_factorial(n):
+    if n <= 1:
+        return 1
+    return n * calculate_factorial(n - 1)
+
+num = int(input("Enter a number: "))
+print(f"Factorial of {num} is {calculate_factorial(num)}")
+`
+    },
+    {
+      label: 'Fibonacci Series',
+      lang: 'python',
+      defaultInput: '8',
+      code: `def fibonacci(n):
+    a, b = 0, 1
+    series = []
+    for _ in range(n):
+        series.append(a)
+        a, b = b, a + b
+    return series
+
+n = int(input("Enter number of terms: "))
+print(f"Fibonacci series ({n} terms): {fibonacci(n)}")
+`
+    },
+    {
+      label: 'Prime Number Checker',
+      lang: 'python',
+      defaultInput: '29',
+      code: `def is_prime(num):
+    if num <= 1:
+        return False
+    for i in range(2, int(num**0.5) + 1):
+        if num % i == 0:
+            return False
+    return True
+
+num = int(input("Enter a number: "))
+if is_prime(num):
+    print(f"{num} is a Prime Number!")
+else:
+    print(f"{num} is NOT a Prime Number.")
+`
+    },
+    {
+      label: 'Palindrome Checker',
+      lang: 'python',
+      defaultInput: 'madam',
+      code: `text = input("Enter word: ")
+cleaned = text.lower().replace(" ", "")
+if cleaned == cleaned[::-1]:
+    print(f"'{text}' is a Palindrome!")
+else:
+    print(f"'{text}' is NOT a Palindrome.")
+`
+    },
+    {
+      label: 'Interactive Calculator',
+      lang: 'python',
+      defaultInput: '10\n20',
+      code: `a = float(input("Enter first number: "))
+b = float(input("Enter second number: "))
+
+print(f"Addition: {a + b}")
+print(f"Subtraction: {a - b}")
+print(f"Multiplication: {a * b}")
+if b != 0:
+    print(f"Division: {a / b}")
+else:
+    print("Division: Cannot divide by zero")
+`
+    }
+  ],
+  javascript: [
+    {
+      label: 'Array Processing',
+      lang: 'javascript',
+      defaultInput: '',
+      code: `function processData(items) {
+  const doubled = items.map(x => x * 2);
+  return doubled.filter(x => x > 10);
+}
+
+const numbers = [2, 5, 8, 12, 15];
+console.log("Input numbers:", numbers);
+console.log("Filtered result:", processData(numbers));
+`
+    },
+    {
+      label: 'Interactive Calculator',
+      lang: 'javascript',
+      defaultInput: '15\n25',
+      code: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+rl.question('Enter num1: ', (n1) => {
+  rl.question('Enter num2: ', (n2) => {
+    const a = Number(n1), b = Number(n2);
+    console.log("Sum:", a + b);
+    console.log("Product:", a * b);
+    rl.close();
+  });
+});
+`
+    },
+    {
+      label: 'Palindrome Checker',
+      lang: 'javascript',
+      defaultInput: 'racecar',
+      code: `const str = "racecar";
+const reversed = str.split("").reverse().join("");
+console.log("Original:", str);
+console.log("Is Palindrome?:", str === reversed);
+`
+    }
+  ],
+  java: [
+    {
+      label: 'Student Grade Calculator',
+      lang: 'java',
+      defaultInput: '',
+      code: `public class Main {
+    public static void main(String[] args) {
+        String name = "Pooja";
+        double maths = 85.0;
+        double science = 75.0;
+        double total = maths + science;
+        double avg = total / 2.0;
+
+        System.out.println("=== Student Grade Calculator ===");
+        System.out.println("Student: " + name);
+        System.out.println("Total: " + total);
+        System.out.println("Average: " + avg);
+        System.out.println("Grade: " + (avg >= 75 ? "A" : "B"));
+    }
+}
+`
+    }
+  ],
+  c: [
+    {
+      label: 'Array Operations',
+      lang: 'c',
+      defaultInput: '',
+      code: `#include <stdio.h>
+
+int main() {
+    int arr[] = {10, 20, 30, 40, 50};
+    int n = 5;
+    int sum = 0;
+    for(int i = 0; i < n; i++) {
+        sum += arr[i];
+    }
+    printf("Array Sum = %d\\n", sum);
+    printf("Array Average = %.2f\\n", (float)sum / n);
+    return 0;
+}
+`
+    }
+  ],
+  cpp: [
+    {
+      label: 'Vector Sorting',
+      lang: 'cpp',
+      defaultInput: '',
+      code: `#include <iostream>
+#include <vector>
+#include <algorithm>
+
+int main() {
+    std::vector<int> nums = {45, 12, 89, 23, 7};
+    std::sort(nums.begin(), nums.end());
+    std::cout << "Sorted Vector: ";
+    for(int n : nums) {
+        std::cout << n << " ";
+    }
+    std::cout << std::endl;
+    return 0;
+}
+`
+    }
+  ]
+};
+
 export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   language,
   code,
@@ -110,7 +302,9 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   suggestedFixSymbol,
   errorSnippet,
   notificationMessage,
-  onApplyQuickFix
+  onApplyQuickFix,
+  onLoadExample,
+  onClearCode
 }) => {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -118,35 +312,47 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
   const [fontSize, setFontSize] = useState<number>(14);
   const [wordWrap, setWordWrap] = useState<'on' | 'off'>('on');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
 
-  const handleEditorMount = (editor: any, monaco: Monaco) => {
+  const handleEditorDidMount = (editor: any, monaco: Monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    monaco.editor.setTheme('vs-dark');
 
-    // Register Keybindings: Ctrl+Enter (Run) & Ctrl+S (Save)
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
-      onRun();
+    monaco.editor.defineTheme('codeforge-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'comment', foreground: '6A9955', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '569CD6', fontStyle: 'bold' },
+        { token: 'string', foreground: 'CE9178' },
+        { token: 'number', foreground: 'B5CEA8' },
+        { token: 'function', foreground: 'DCDCAA' }
+      ],
+      colors: {
+        'editor.background': '#0B0F19',
+        'editor.foreground': '#E2E8F0',
+        'editor.lineHighlightBackground': '#1E293B50',
+        'editorCursor.foreground': '#38BDF8',
+        'editorWhitespace.foreground': '#334155',
+        'editorLineNumber.foreground': '#475569',
+        'editorLineNumber.activeForeground': '#94A3B8'
+      }
     });
 
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      onSave();
-    });
+    monaco.editor.setTheme('codeforge-dark');
   };
 
-  // Dynamically set Error Line markers in Monaco Editor when an error occurs
   useEffect(() => {
     if (editorRef.current && monacoRef.current) {
       const model = editorRef.current.getModel();
       if (!model) return;
 
-      if (errorLine && errorLine > 0) {
-        let msg = `Error on Line ${errorLine}`;
+      if (errorLine && status && status !== 'success') {
+        let msg = `Execution error on Line ${errorLine}`;
+
         if (status === 'syntax_error') {
-          if (missingOperand && missingSymbol) {
-            msg = `Syntax Error on Line ${errorLine}: Incomplete expression — missing number '${missingOperand}' and closing symbol '${missingSymbol}'`;
-          } else if (wrongSymbol && suggestedFixSymbol) {
-            msg = `Syntax Error on Line ${errorLine}: Invalid symbol '${wrongSymbol}'. Did you mean '${suggestedFixSymbol}'?`;
+          if (suggestedFixSymbol) {
+            msg = `Syntax Error on Line ${errorLine}: Missing '${suggestedFixSymbol}' near '${errorSnippet || ''}'`;
           } else if (missingSymbol) {
             msg = `Syntax Error on Line ${errorLine}: Missing closing symbol '${missingSymbol}'`;
           } else {
@@ -189,6 +395,14 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
     }
   };
 
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const currentExamples = demoExamples[language.toLowerCase()] || demoExamples.python;
+
   return (
     <div className={`flex flex-col h-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl ${isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : ''}`}>
       
@@ -226,11 +440,55 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
               <option value="java">Java 25</option>
             </select>
           </div>
+
+          {/* Load Demo Example Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-1 rounded-lg">
+            <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <select
+              onChange={(e) => {
+                const idx = Number(e.target.value);
+                if (isNaN(idx)) return;
+                const ex = currentExamples[idx];
+                if (ex && onLoadExample) {
+                  onLoadExample(ex.code, ex.defaultInput);
+                } else if (ex) {
+                  onChange(ex.code);
+                }
+              }}
+              defaultValue=""
+              className="bg-transparent text-xs font-semibold text-slate-300 focus:outline-none cursor-pointer max-w-[140px]"
+            >
+              <option value="" disabled className="bg-slate-900">Load Example...</option>
+              {currentExamples.map((ex, i) => (
+                <option key={ex.label} value={i} className="bg-slate-900">
+                  {ex.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Action Button Bar */}
         <div className="flex items-center gap-2">
           
+          {/* Copy Code */}
+          <button
+            onClick={handleCopyCode}
+            title="Copy Code"
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-colors"
+          >
+            <Copy className={`w-3.5 h-3.5 ${copied ? 'text-emerald-400' : ''}`} />
+          </button>
+
+          {/* Clear Code */}
+          <button
+            onClick={() => onClearCode ? onClearCode() : onChange('')}
+            title="Clear Code"
+            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 text-xs transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
           {/* Font Size Selector */}
           <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1 rounded-lg text-slate-300 text-xs">
             <Type className="w-3.5 h-3.5 text-slate-400" />
@@ -275,8 +533,8 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
             title="Run Code (Ctrl+Enter)"
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg font-bold text-xs shadow-md transition-all ${
               isRunning
-                ? 'bg-amber-600/50 text-amber-200 cursor-not-allowed'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                ? 'bg-emerald-700 text-slate-300 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 cursor-pointer'
             }`}
           >
             {isRunning ? (
@@ -287,7 +545,7 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                Run Code
+                Run
               </>
             )}
           </button>
@@ -308,120 +566,56 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
           <button
             onClick={onSave}
             title="Save Program (Ctrl+S)"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-colors cursor-pointer"
           >
             <Save className="w-3.5 h-3.5 text-blue-400" />
             Save
           </button>
 
-          {/* AI Analyze Button */}
+          {/* AI Debug Button */}
           <button
             onClick={onAIAnalyze}
             disabled={isAILoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-blue-500/20 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            AI Analyze
-          </button>
-
-          {/* AI Optimize Button */}
-          <button
-            onClick={onAIOptimize}
-            disabled={isAILoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition-all"
-          >
-            <Wand2 className="w-3.5 h-3.5 text-cyan-300" />
-            Optimize
+            AI Debug
           </button>
         </div>
-
       </div>
 
-      {/* In-App Toast / Notification Banner */}
-      {notificationMessage && (
-        <div className="bg-amber-950/80 border-b border-amber-500/40 px-4 py-2 flex items-center gap-2 text-xs text-amber-200">
-          <Info className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>{notificationMessage}</span>
-        </div>
-      )}
-
-      {/* Interactive Error Highlight Banner */}
-      {errorLine && errorLine > 0 && (
-        <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-rose-950 border-b border-rose-500/40 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-rose-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-            <div>
-              <span className="font-bold text-white bg-rose-600 px-2 py-0.5 rounded text-[11px] mr-2">
-                Line {errorLine}
-              </span>
-              {status === 'syntax_error' ? (
-                missingOperand && missingSymbol ? (
-                  <span>
-                    Syntax Error — Missing number <code className="bg-amber-900 px-1.5 py-0.5 rounded text-amber-300 font-mono font-bold">{missingOperand}</code> after operator and closing symbol <code className="bg-amber-900 px-1.5 py-0.5 rounded text-amber-300 font-mono font-bold">{missingSymbol}</code>
-                  </span>
-                ) : wrongSymbol && suggestedFixSymbol ? (
-                  <span>
-                    Syntax Error — Invalid symbol <code className="bg-rose-900 px-1.5 py-0.5 rounded text-rose-300 font-mono font-bold">{wrongSymbol}</code> — Did you mean <code className="bg-emerald-900 px-1.5 py-0.5 rounded text-emerald-300 font-mono font-bold">{suggestedFixSymbol}</code>?
-                  </span>
-                ) : missingSymbol ? (
-                  <span>
-                    Syntax Error — Missing closing symbol <code className="bg-amber-900 px-1.5 py-0.5 rounded text-amber-300 font-mono font-bold">{missingSymbol}</code> in statement
-                  </span>
-                ) : (
-                  <span>Syntax error detected on Line {errorLine}</span>
-                )
-              ) : status === 'runtime_error' ? (
-                wrongSymbol ? (
-                  <span>
-                    Runtime Error (NameError) — Variable <code className="bg-rose-900 px-1.5 py-0.5 rounded text-rose-300 font-mono font-bold">{wrongSymbol}</code> is undefined
-                  </span>
-                ) : (
-                  <span>Runtime Error detected on Line {errorLine}</span>
-                )
-              ) : status === 'compilation_error' ? (
-                <span>Compilation Error detected on Line {errorLine}</span>
-              ) : (
-                <span>Execution error on Line {errorLine}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Auto-Fix Action Button */}
-          {onApplyQuickFix && (
-            <button
-              onClick={onApplyQuickFix}
-              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg shadow-md transition-all border border-emerald-400/30 cursor-pointer"
-            >
-              <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
-              Auto-Fix Line {errorLine} & Re-Run
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Editor Main Canvas */}
-      <div className="flex-1 min-h-[400px] relative">
+      {/* Editor Main Content Area */}
+      <div className="flex-1 relative">
         <Editor
           height="100%"
           language={getMonacoLanguage(language)}
           value={code}
           onChange={(val) => onChange(val || '')}
-          onMount={handleEditorMount}
+          onMount={handleEditorDidMount}
           options={{
-            fontSize: fontSize,
-            fontFamily: "'Fira Code', monospace",
-            minimap: { enabled: true },
+            fontSize,
+            wordWrap,
+            minimap: { enabled: false },
             scrollBeyondLastLine: false,
             automaticLayout: true,
             tabSize: 4,
-            wordWrap: wordWrap,
+            fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+            fontLigatures: true,
             lineNumbers: 'on',
-            renderWhitespace: 'selection',
-            bracketPairColorization: { enabled: true }
+            renderLineHighlight: 'all'
           }}
         />
       </div>
 
+      {/* Toast Notification Bar */}
+      {notificationMessage && (
+        <div className="px-4 py-2 bg-blue-900/90 border-t border-blue-700 text-blue-100 text-xs font-semibold flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-blue-300" />
+            {notificationMessage}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

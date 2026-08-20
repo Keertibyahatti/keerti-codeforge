@@ -1,133 +1,105 @@
-# CodeForge AI — Intelligent Web-Based Code Editor
+# CodeForge AI — Intelligent Code Execution, Error Detection & Debugging Platform
 
-**CodeForge AI** is a real-time full-stack web application designed as a major/final-year project. It features multi-language execution (Python, JavaScript, C, C++, Java), an interactive Monaco editor workspace, real-time output & error logs, AI-assisted error explanation and code fixing, automated code optimization, code version history, and execution audit logging.
+CodeForge AI is a complete, professional, web-based coding platform featuring multi-language execution, AI-assisted error detection, automatic code fixing, iterative re-debugging, SAST security analysis, unit test generation, performance profiling, and a 0–100 Production Readiness Index.
 
 ---
 
-## 🚀 Key Features
+## 🌟 Key Features
 
-* **Multi-Language Sandbox Execution**: Run Python, JavaScript (Node.js), C (GCC), C++ (G++), and Java programs directly from your browser.
-* **Monaco VS-Code Editor**: Full syntax highlighting, line numbers, autocomplete, starter templates, and code formatting.
-* **AI Diagnostic & Optimization Engine**:
-  * Detects syntax errors, compilation failures, and runtime tracebacks.
-  * Provides beginner-friendly explanations and root-cause breakdowns.
-  * 1-click "Apply Fix" to update code in the editor.
-  * Code refactoring and algorithmic time/space complexity optimization.
-* **User Authentication & Dashboard**: Secure JWT-based authentication with bcrypt password hashing.
-* **Code & Version History**: Save programs and track full version snapshot histories.
-* **Execution Audit Logs**: View execution logs, process execution timing, and exit codes.
-* **Sandboxed Security**: Enforces 5-second process execution limits, 1MB stdout buffer caps, and temporary file sanitization.
+1. **Multi-Language Execution Engine**: Run complete programs in **Python 3**, **JavaScript (Node.js)**, **TypeScript**, **C (GCC)**, **C++ (G++)**, and **Java**.
+2. **Interactive Stdin Stream**: Live terminal stdin prompt interleaving allowing sequential user input entries (`input()`, `readline`).
+3. **AI Error Detection & Beginner Explanations**: Detects exact error lines, exception types (`ZeroDivisionError`, `NameError`, `SyntaxError`), and provides beginner-friendly explanations ("What happened?", "Why it happened?", "How to fix it?").
+4. **Auto Fix & Verified Re-Run**: One-click automatic code repair that applies candidate fixes to Monaco Editor, re-executes in backend process, and verifies success with `✅ FIX VERIFIED`.
+5. **Iterative Re-Debug (Up to 5 Attempts)**: Advanced re-debugging workflow executing up to 5 safe fix cycles until Exit Code is 0 or max attempts are reached.
+6. **Code Diff View & Restore Original**: Visual before/after diff comparison with one-click "Restore Original Code" button.
+7. **Demo Examples Selector**: Ready-to-use demo programs for Python (Factorial, Fibonacci, Prime Number, Palindrome, Calculator), JavaScript, Java, C, and C++.
+8. **Test Cases System**: Add custom test cases (Input, Expected Output) and click "Run All Test Cases" to inspect `PASS`/`FAIL`/`ERROR` metrics.
+9. **SAST Security Center**: Scans code for command injection, unsafe `eval()`, hardcoded credentials, and zero-division risks with actionable security patches.
+10. **Performance Intelligence**: Profiling execution duration, memory footprint, and algorithm time complexity ($O(n \log n)$).
+11. **Production Readiness Index (0–100)**: Evaluates project readiness across Security, Testing, Reliability, Performance, Architecture, Maintainability, Documentation, Observability, and Deployment.
 
 ---
 
 ## 🛠️ Technology Stack
 
-* **Frontend**: React 19, TypeScript, Vite, Monaco Editor (`@monaco-editor/react`), React Router, Tailwind CSS, Lucide Icons
-* **Backend**: Node.js, Express, TypeScript, JWT (`jsonwebtoken`), `bcryptjs`, Zod
-* **Database**: Prisma ORM with SQLite (default zero-config local setup) or PostgreSQL (configured via `.env`)
-* **Execution Infrastructure**: Process-level isolated language runtimes (`python`, `node`, `gcc`, `g++`, `javac`/`java`)
+- **Frontend**: React 18, Vite, TypeScript, TailwindCSS, Monaco Editor (`@monaco-editor/react`), Lucide Icons, React Router.
+- **Backend**: Node.js, Express, TypeScript, Prisma ORM, SQLite / PostgreSQL, Child-Process execution handles.
+- **AI Integration**: Google Gemini 2.5 Flash API with offline structural fallback repair algorithms.
 
 ---
 
-## 📦 Project Structure
+## 🚀 Beginner Quick-Start Instructions
 
-```text
-codeforge-ai/
-├── frontend/             # React + Vite + Monaco Editor Frontend Application
-│   ├── src/
-│   │   ├── components/   # Navbar, Sidebar, MonacoEditorPanel, ConsolePanel, AIPanel
-│   │   ├── pages/        # Landing, Register, Login, Dashboard, Editor, History, Executions, Profile
-│   │   ├── context/      # AuthContext for session management
-│   │   ├── services/     # Axios API client
-│   │   └── types/        # TypeScript interfaces
-├── backend/              # Node.js + Express + Prisma API & Execution Engine
-│   ├── src/
-│   │   ├── controllers/  # Auth, Program, Execution, AI controllers
-│   │   ├── executors/    # Python, JS, C, C++, Java language executors
-│   │   ├── middleware/   # JWT auth & error handler
-│   │   ├── routes/       # API endpoints
-│   │   └── services/     # AI service & Gemini API client
-│   └── prisma/           # Database schema & seed script
-├── docs/                 # Architecture & API documentation
-├── docker-compose.yml    # Optional PostgreSQL Docker service
-├── .env.example          # Environment variables template
-├── README.md             # Project setup guide
-└── package.json          # Root workspace scripts
-```
+### Step 1: Clone & Setup
+```bash
+# Navigate to repository
+cd "c:\Users\USER\Desktop\codeforge keerti"
 
----
-
-## 💻 Quick Start & VS Code Instructions
-
-### 1. Prerequisites
-Ensure you have installed:
-* **Node.js**: v18+ or v20+ (Node v24 supported)
-* **npm**: v9+ or v10+
-* **Language Runtimes** (for local code execution):
-  * Python (`python` or `python3` in system PATH)
-  * Node.js (`node` in system PATH)
-  * GCC / G++ (`gcc` / `g++` for C and C++)
-  * Java Development Kit (`javac` and `java` for Java)
-
-### 2. Installation & Setup Steps (Windows PowerShell / VS Code)
-
-Open VS Code terminal in the project directory (`codeforge keerti`) and run:
-
-```powershell
-# 1. Install root, backend, and frontend dependencies
+# Install all dependencies & push database schema
 npm run setup
 ```
 
-The `npm run setup` command automatically installs all packages, runs Prisma database migrations (`dev.db`), and seeds initial sample programs.
-
-### 3. Run Development Servers
-
-Start both Backend API (`http://localhost:5000`) and Frontend (`http://localhost:5173`) concurrently:
-
-```powershell
-npm run dev
-```
-
-Open your browser and navigate to **`http://localhost:5173`**.
-
----
-
-## 🧪 Testing the Complete Application Flow
-
-1. Open `http://localhost:5173/` in your browser.
-2. Click **Start Coding** or **Register**.
-3. Create a new account or sign in using sample credentials:
-   * **Email**: `demo@codeforge.ai`
-   * **Password**: `demo123456`
-4. On the **Dashboard**, click **New Program** or **Launch Code Editor**.
-5. Select **Python**, write `print("Hello CodeForge AI")`, and click **Run Code**.
-6. Introduce an intentional syntax error (e.g. `if True print("Error")` without a colon) and click **Run Code**.
-7. Click **AI Analyze** to view beginner explanations and click **Apply Fix**!
-8. Click **Save** to persist the program in your account.
-9. Visit **My Programs** and **Execution Logs** to verify version control and audit logs.
-
----
-
-## 🔑 Environment Variables
-
-To configure an API key for Google Gemini AI or customize ports, edit `backend/.env`:
-
-```env
+### Step 2: Configure Environment Variables
+Copy `.env.example` to `.env` inside `backend/`:
+```ini
 PORT=5000
-NODE_ENV=development
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="codeforge_ai_super_secret_jwt_key_2026"
-JWT_EXPIRES_IN="7d"
-
-# Optional Gemini API key
 AI_API_KEY=""
 AI_MODEL="gemini-2.5-flash"
 ```
 
-*Note: If `AI_API_KEY` is omitted, CodeForge AI automatically uses its built-in smart diagnostic fallback engine to provide detailed structured feedback without failing.*
+### Step 3: Run Backend API Server
+```bash
+cd backend
+npm run dev
+# Server running at http://localhost:5000
+```
+
+### Step 4: Run Frontend Web Application
+```bash
+cd frontend
+npm run dev
+# Web application running at http://localhost:5173
+```
+
+### Step 5: Run Comprehensive E2E System Test Suite (15 Tests)
+```bash
+cd backend
+npm run test
+```
 
 ---
 
-## 📄 License & Major Project Status
+## 🧪 Comprehensive Test Suite Verification
 
-Developed for college major project submission. Full-stack architecture validated for production presentation.
+All 15 E2E tests pass with Exit Code 0:
+- Test 1: Clean Python code execution
+- Test 2: ZeroDivisionError detection
+- Test 3: Stdin input processing ("Pooja")
+- Test 4: Multi-line stdin inputs (10 and 20 -> 30)
+- Test 5: NameError detection
+- Test 6: AI Auto-Fix & Verified Re-Run
+- Test 7: Fix verification failure handling
+- Test 8: Process limit timeout (5000ms cap)
+- Test 9: User stop execution process
+- Test 10: Student Calculator
+- Test 11: Number Calculator
+- Test 12: JavaScript Readline Calculator
+- Test 13: Console Reset & Job Isolation
+- Test 14: Employee Salary Calculator
+- Test 15: Student Grade Calculator Phase 39 Acceptance Test
+
+---
+
+## 🎥 Final Demonstration Flow (Feature 24)
+
+1. Open CodeForge AI at [http://localhost:5173/editor](http://localhost:5173/editor).
+2. Select **Python 3** and choose **"Factorial Calculator"** from the **Load Example** dropdown.
+3. Introduce an intentional error (e.g., cut function call to `calculate_factor`).
+4. Click **Run** -> Output displays detected error.
+5. Click **AI Debug** -> Beginner-friendly explanation appears.
+6. Click **AI Fix & Auto Re-Run** -> Code diff modal displays before/after changes.
+7. Click **Apply Fix & Re-Run** -> System updates code, re-executes, and displays `✅ FIX VERIFIED`.
+8. Enter input `5` in terminal -> Final complete output `Factorial of 5 is 120`.
+9. Click **Save** -> View saved program on Dashboard & Execution History.

@@ -141,6 +141,31 @@ exports.Prisma.CodeVersionScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.ProjectScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  description: 'description',
+  language: 'language',
+  framework: 'framework',
+  isPublic: 'isPublic',
+  readinessScore: 'readinessScore',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ProjectFileScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  path: 'path',
+  name: 'name',
+  isFolder: 'isFolder',
+  content: 'content',
+  language: 'language',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.ExecutionScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -168,6 +193,51 @@ exports.Prisma.AIAnalysisScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.SecurityScanScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  vulnerability: 'vulnerability',
+  severity: 'severity',
+  file: 'file',
+  line: 'line',
+  explanation: 'explanation',
+  suggestedFix: 'suggestedFix',
+  status: 'status',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TestResultScalarFieldEnum = {
+  id: 'id',
+  projectId: 'projectId',
+  suiteName: 'suiteName',
+  testName: 'testName',
+  status: 'status',
+  duration: 'duration',
+  errorMsg: 'errorMsg',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.AuditLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  action: 'action',
+  details: 'details',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.InterviewSubmissionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  problemTitle: 'problemTitle',
+  difficulty: 'difficulty',
+  code: 'code',
+  language: 'language',
+  score: 'score',
+  feedback: 'feedback',
+  passed: 'passed',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -183,8 +253,14 @@ exports.Prisma.ModelName = {
   User: 'User',
   Program: 'Program',
   CodeVersion: 'CodeVersion',
+  Project: 'Project',
+  ProjectFile: 'ProjectFile',
   Execution: 'Execution',
-  AIAnalysis: 'AIAnalysis'
+  AIAnalysis: 'AIAnalysis',
+  SecurityScan: 'SecurityScan',
+  TestResult: 'TestResult',
+  AuditLog: 'AuditLog',
+  InterviewSubmission: 'InterviewSubmission'
 };
 
 /**

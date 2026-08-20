@@ -4,12 +4,64 @@ import { ExecutorFactory } from '../executors/executorFactory';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middleware/auth';
 
+interface ActiveJobHandle {
+  killFn: () => void;
+  writeStdin: (data: string) => void;
+}
+
+const activeJobsMap = new Map<string, ActiveJobHandle>();
+
 const runSchema = z.object({
   language: z.string().min(1, 'Language is required'),
   code: z.string().min(1, 'Code cannot be empty'),
   input: z.string().optional().default(''),
-  programId: z.string().optional()
+  programId: z.string().optional(),
+  executionJobId: z.string().optional()
 });
+
+export const sendStdinInput = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { executionJobId, input } = req.body;
+    if (executionJobId && activeJobsMap.has(executionJobId)) {
+      const handle = activeJobsMap.get(executionJobId);
+      if (handle && handle.writeStdin) {
+        handle.writeStdin(input || '');
+        res.json({ success: true, message: 'Input sent to running process stdin.' });
+        return;
+      }
+    }
+    // Fallback: If no active job ID matches, write to all active running processes
+    for (const [id, handle] of activeJobsMap.entries()) {
+      if (handle && handle.writeStdin) {
+        handle.writeStdin(input || '');
+      }
+    }
+    res.json({ success: true, message: 'Input sent to active process.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Stdin Stream Error', message: err.message });
+  }
+};
+
+export const stopExecution = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { executionJobId } = req.body;
+    if (executionJobId && activeJobsMap.has(executionJobId)) {
+      const handle = activeJobsMap.get(executionJobId);
+      if (handle?.killFn) handle.killFn();
+      activeJobsMap.delete(executionJobId);
+      res.json({ success: true, status: 'stopped', message: 'Execution stopped by user.' });
+      return;
+    }
+    // If specific ID is missing, kill all active running jobs as fallback
+    for (const [id, handle] of activeJobsMap.entries()) {
+      try { handle.killFn(); } catch {}
+      activeJobsMap.delete(id);
+    }
+    res.json({ success: true, status: 'stopped', message: 'Execution stopped by user.' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Stop Execution Error', message: err.message });
+  }
+};
 
 export const executeCode = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -20,6 +72,7 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
     }
 
     const { language, code, input, programId } = parseResult.data;
+    const jobId = parseResult.data.executionJobId || `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const userId = req.user?.userId;
 
     // Get matching executor instance
@@ -31,8 +84,17 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Run execution with 5-second process timeout
-    const result = await executor.execute({ code, input, timeoutMs: 5000 });
+    // Run execution with 5-second process timeout & cancellation handle
+    const result = await executor.execute({
+      code,
+      input,
+      timeoutMs: 5000,
+      onChildSpawn: (handle) => {
+        activeJobsMap.set(jobId, handle);
+      }
+    });
+
+    activeJobsMap.delete(jobId);
 
     // Store execution in DB
     const execution = await prisma.execution.create({

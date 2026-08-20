@@ -9,14 +9,17 @@ generator client {
 }
 
 model User {
-  id           String      @id @default(uuid())
-  name         String
-  email        String      @unique
-  passwordHash String
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  programs     Program[]
-  executions   Execution[]
+  id                String                @id @default(uuid())
+  name              String
+  email             String                @unique
+  passwordHash      String
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  programs          Program[]
+  projects          Project[]
+  executions        Execution[]
+  auditLogs         AuditLog[]
+  interviewAttempts InterviewSubmission[]
 }
 
 model Program {
@@ -39,6 +42,36 @@ model CodeVersion {
   code      String
   language  String
   createdAt DateTime @default(now())
+}
+
+model Project {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?        @default("")
+  language       String         @default("python")
+  framework      String?        @default("cli")
+  isPublic       Boolean        @default(false)
+  readinessScore Int            @default(85)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  files          ProjectFile[]
+  securityScans  SecurityScan[]
+  testResults    TestResult[]
+}
+
+model ProjectFile {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  path      String // e.g. "src/main.py"
+  name      String // e.g. "main.py"
+  isFolder  Boolean  @default(false)
+  content   String   @default("")
+  language  String   @default("python")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Execution {
@@ -70,4 +103,53 @@ model AIAnalysis {
   correctedCode           String
   optimizationSuggestions String?   @default("[]")
   createdAt               DateTime  @default(now())
+}
+
+model SecurityScan {
+  id            String   @id @default(uuid())
+  projectId     String?
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vulnerability String
+  severity      String // "CRITICAL", "HIGH", "MEDIUM", "LOW"
+  file          String
+  line          Int
+  explanation   String
+  suggestedFix  String
+  status        String   @default("OPEN") // "OPEN", "FIXED"
+  createdAt     DateTime @default(now())
+}
+
+model TestResult {
+  id        String   @id @default(uuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  suiteName String
+  testName  String
+  status    String // "PASSED", "FAILED", "SKIPPED"
+  duration  Int
+  errorMsg  String?  @default("")
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model InterviewSubmission {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemTitle String
+  difficulty   String // "Easy", "Medium", "Hard"
+  code         String
+  language     String
+  score        Int // 0 - 100
+  feedback     String
+  passed       Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }

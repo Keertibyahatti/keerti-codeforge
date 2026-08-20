@@ -40,17 +40,37 @@ export class CppExecutor implements BaseExecutor {
       let stdout = '';
       let stderr = '';
       let isTimedOut = false;
+      let isStopped = false;
       let isOutputExceeded = false;
+
+      if (options.onChildSpawn) {
+        options.onChildSpawn({
+          killFn: () => {
+            isStopped = true;
+            try { child.kill('SIGKILL'); } catch {}
+          },
+          writeStdin: (data: string) => {
+            try {
+              const text = data.endsWith('\n') ? data : data + '\n';
+              child.stdin.write(text);
+            } catch (e) {
+              console.error('Error writing to C++ process stdin:', e);
+            }
+          }
+        });
+      }
 
       const timer = setTimeout(() => {
         isTimedOut = true;
         child.kill('SIGKILL');
       }, timeoutMs);
 
-      if (options.input) {
-        child.stdin.write(options.input);
-        child.stdin.end();
-      } else {
+      let formattedInput = options.input || '';
+      if (formattedInput) {
+        if (!formattedInput.endsWith('\n')) {
+          formattedInput += '\n';
+        }
+        child.stdin.write(formattedInput);
         child.stdin.end();
       }
 
@@ -71,12 +91,40 @@ export class CppExecutor implements BaseExecutor {
         clearTimeout(timer);
         const executionTime = Date.now() - startTime;
         const cleanStderr = stripAnsi(stderr);
+
+        let finalStdout = stdout;
+
+        if (formattedInput && formattedInput.trim()) {
+          const inputLines = formattedInput.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          if (inputLines.length > 0) {
+            let inputIdx = 0;
+            finalStdout = finalStdout.replace(/([A-Z][a-zA-Z0-9\s]*:\s*)/g, (match) => {
+              if (inputIdx < inputLines.length) {
+                const typed = inputLines[inputIdx++];
+                return `\n${match.trimEnd()}\n> ${typed}\n`;
+              }
+              return match;
+            });
+            finalStdout = finalStdout.replace(/\n{3,}/g, '\n\n').trim();
+          }
+        }
+
         try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+
+        if (isStopped) {
+          return resolve({
+            status: 'stopped',
+            stdout: finalStdout,
+            stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution stopped by user.',
+            executionTime,
+            exitCode: null
+          });
+        }
 
         if (isTimedOut) {
           return resolve({
             status: 'timeout',
-            stdout,
+            stdout: finalStdout,
             stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution timed out (exceeded limit of ' + timeoutMs + 'ms).',
             executionTime,
             exitCode: null
@@ -86,7 +134,7 @@ export class CppExecutor implements BaseExecutor {
         if (isOutputExceeded) {
           return resolve({
             status: 'output_limit',
-            stdout,
+            stdout: finalStdout,
             stderr: cleanStderr + (cleanStderr ? '\n' : '') + 'Execution output exceeded 1024 KB buffer limit.',
             executionTime,
             exitCode: code ?? 1
@@ -95,7 +143,7 @@ export class CppExecutor implements BaseExecutor {
 
         resolve({
           status: code === 0 ? 'success' : 'runtime_error',
-          stdout,
+          stdout: finalStdout,
           stderr: cleanStderr,
           executionTime,
           exitCode: code ?? 0
