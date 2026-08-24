@@ -5,6 +5,21 @@ import os from 'os';
 import { BaseExecutor, ExecutionOptions, ExecutionResult } from './baseExecutor';
 import { stripAnsi } from '../utils/ansi';
 
+function stripTypeScriptTypes(code: string): string {
+  let cleaned = code;
+  // Remove interface blocks
+  cleaned = cleaned.replace(/interface\s+\w+\s*\{[\s\S]*?\}/g, '');
+  // Remove type alias declarations
+  cleaned = cleaned.replace(/type\s+\w+\s*=\s*[^;]+;/g, '');
+  // Remove parameter type annotations like ": number", ": string", ": any[]", ": boolean"
+  cleaned = cleaned.replace(/:\s*(number|string|boolean|any|void|number\[\]|string\[\]|boolean\[\]|any\[\]|Record<[^>]+>|Array<[^>]+>)\b/gi, '');
+  // Remove function return type annotations like "): number {" or "): void {"
+  cleaned = cleaned.replace(/\):\s*(number|string|boolean|any|void|number\[\]|string\[\]|boolean\[\]|any\[\])\s*\{/gi, ') {');
+  // Remove "as type" assertions
+  cleaned = cleaned.replace(/\s+as\s+[A-Za-z0-9_<>]+/g, '');
+  return cleaned;
+}
+
 export class JSExecutor implements BaseExecutor {
   async execute(options: ExecutionOptions): Promise<ExecutionResult> {
     const timeoutMs = options.timeoutMs || 5000;
@@ -12,7 +27,8 @@ export class JSExecutor implements BaseExecutor {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codeforge-js-'));
     const filePath = path.join(tempDir, 'main.js');
 
-    fs.writeFileSync(filePath, options.code, 'utf8');
+    const runnableCode = stripTypeScriptTypes(options.code);
+    fs.writeFileSync(filePath, runnableCode, 'utf8');
 
     const startTime = Date.now();
 

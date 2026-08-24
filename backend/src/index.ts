@@ -55,6 +55,10 @@ app.post('/api/debug', optionalJWT, analyzeError);
 app.post('/api/debug/auto-fix', optionalJWT, autoFixCode);
 app.post('/api/fix', optionalJWT, autoFixCode);
 app.post('/api/redebug', optionalJWT, redebugCode);
+app.post('/api/chat', optionalJWT, require('./controllers/aiController').chatWithAIController);
+app.post('/api/generate-multi-lang', optionalJWT, require('./controllers/aiController').generateMultiLangController);
+app.get('/api/interview/problems', require('./controllers/interviewController').getInterviewProblems);
+app.post('/api/interview/submit', require('./controllers/interviewController').submitInterviewSolution);
 app.post('/api/test', optionalJWT, runTests);
 app.get('/api/history', optionalJWT, getExecutionHistory);
 

@@ -7,6 +7,8 @@ import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
+import { CodeGeneratorPage } from './pages/CodeGeneratorPage';
+import { InterviewPage } from './pages/InterviewPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ExecutionsPage } from './pages/ExecutionsPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -36,8 +38,10 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Code Editor (Accessible to both Guests and Authenticated Users) */}
+          {/* Code Editor, Multi-Lang Generator & Interview Arena */}
           <Route path="/editor" element={<EditorPage />} />
+          <Route path="/generator" element={<CodeGeneratorPage />} />
+          <Route path="/interview" element={<InterviewPage />} />
 
           {/* Protected Routes */}
           <Route

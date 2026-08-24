@@ -144,11 +144,11 @@ export class ErrorParser {
     }
 
     let lineNum: number | undefined = undefined;
-    const fileLineMatch = stderr.match(/File "([^"]+)", line (\d+)/);
-    if (fileLineMatch) {
-      lineNum = parseInt(fileLineMatch[2], 10);
+    const fileMatches = Array.from(stderr.matchAll(/File "([^"]+)", line (\d+)/g));
+    if (fileMatches.length > 0) {
+      lineNum = parseInt(fileMatches[fileMatches.length - 1][2], 10);
     } else {
-      const syntaxLineMatch = stderr.match(/line (\d+)/);
+      const syntaxLineMatch = stderr.match(/line (\d+)/i);
       if (syntaxLineMatch) {
         lineNum = parseInt(syntaxLineMatch[1], 10);
       }

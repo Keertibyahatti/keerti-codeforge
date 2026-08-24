@@ -11,14 +11,6 @@ interface ActiveJobHandle {
 
 const activeJobsMap = new Map<string, ActiveJobHandle>();
 
-const runSchema = z.object({
-  language: z.string().min(1, 'Language is required'),
-  code: z.string().min(1, 'Code cannot be empty'),
-  input: z.string().optional().default(''),
-  programId: z.string().optional(),
-  executionJobId: z.string().optional()
-});
-
 export const sendStdinInput = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { executionJobId, input } = req.body;
@@ -30,7 +22,6 @@ export const sendStdinInput = async (req: AuthRequest, res: Response): Promise<v
         return;
       }
     }
-    // Fallback: If no active job ID matches, write to all active running processes
     for (const [id, handle] of activeJobsMap.entries()) {
       if (handle && handle.writeStdin) {
         handle.writeStdin(input || '');
@@ -52,7 +43,6 @@ export const stopExecution = async (req: AuthRequest, res: Response): Promise<vo
       res.json({ success: true, status: 'stopped', message: 'Execution stopped by user.' });
       return;
     }
-    // If specific ID is missing, kill all active running jobs as fallback
     for (const [id, handle] of activeJobsMap.entries()) {
       try { handle.killFn(); } catch {}
       activeJobsMap.delete(id);
@@ -65,28 +55,44 @@ export const stopExecution = async (req: AuthRequest, res: Response): Promise<vo
 
 export const executeCode = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const parseResult = runSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      res.status(400).json({ error: 'Validation Error', details: parseResult.error.flatten().fieldErrors });
+    const targetLanguage = (req.body.language || 'python').toLowerCase().trim();
+    const targetCode = (req.body.code || '').trim();
+    const input = req.body.input || '';
+    const programId = req.body.programId;
+    const jobId = req.body.executionJobId || `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const userId = req.user?.userId;
+
+    if (!targetCode) {
+      res.json({
+        executionId: 'none',
+        status: 'runtime_error',
+        stdout: '',
+        stderr: 'Source code is empty. Please enter valid code to execute.',
+        executionTime: 0,
+        exitCode: 1
+      });
       return;
     }
-
-    const { language, code, input, programId } = parseResult.data;
-    const jobId = parseResult.data.executionJobId || `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const userId = req.user?.userId;
 
     // Get matching executor instance
     let executor;
     try {
-      executor = ExecutorFactory.getExecutor(language);
+      executor = ExecutorFactory.getExecutor(targetLanguage);
     } catch (executorError: any) {
-      res.status(400).json({ error: 'Unsupported Language', message: executorError.message });
+      res.json({
+        executionId: 'none',
+        status: 'runtime_error',
+        stdout: '',
+        stderr: `Unsupported language runtime: ${targetLanguage}`,
+        executionTime: 0,
+        exitCode: 1
+      });
       return;
     }
 
     // Run execution with 5-second process timeout & cancellation handle
     const result = await executor.execute({
-      code,
+      code: targetCode,
       input,
       timeoutMs: 5000,
       onChildSpawn: (handle) => {
@@ -97,37 +103,48 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
     activeJobsMap.delete(jobId);
 
     // Store execution in DB
-    const execution = await prisma.execution.create({
-      data: {
-        userId: userId || null,
-        programId: programId || null,
-        language: language.toLowerCase(),
-        code,
-        input: input || '',
+    try {
+      const execution = await prisma.execution.create({
+        data: {
+          userId: userId || null,
+          programId: programId || null,
+          language: targetLanguage,
+          code: targetCode,
+          input: input || '',
+          status: result.status,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          executionTime: result.executionTime,
+          exitCode: result.exitCode ?? 1
+        }
+      });
+
+      res.json({
+        executionId: execution.id,
+        status: result.status,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        executionTime: result.executionTime,
+        exitCode: result.exitCode,
+        errorLine: result.errorLine,
+        errorColumn: result.errorColumn,
+        missingSymbol: result.missingSymbol,
+        missingOperand: result.missingOperand,
+        wrongSymbol: result.wrongSymbol,
+        suggestedFixSymbol: result.suggestedFixSymbol,
+        errorSnippet: result.errorSnippet,
+        createdAt: execution.createdAt
+      });
+    } catch (dbErr) {
+      res.json({
+        executionId: `exec_${Date.now()}`,
         status: result.status,
         stdout: result.stdout,
         stderr: result.stderr,
         executionTime: result.executionTime,
         exitCode: result.exitCode ?? 1
-      }
-    });
-
-    res.json({
-      executionId: execution.id,
-      status: result.status,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      executionTime: result.executionTime,
-      exitCode: result.exitCode,
-      errorLine: result.errorLine,
-      errorColumn: result.errorColumn,
-      missingSymbol: result.missingSymbol,
-      missingOperand: result.missingOperand,
-      wrongSymbol: result.wrongSymbol,
-      suggestedFixSymbol: result.suggestedFixSymbol,
-      errorSnippet: result.errorSnippet,
-      createdAt: execution.createdAt
-    });
+      });
+    }
   } catch (error: any) {
     console.error('Execution Controller Exception:', error);
     res.status(500).json({ error: 'Execution Error', message: error.message });

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { analyzeError, optimizeCode, autoFixCode, redebugCode } from '../controllers/aiController';
+import { analyzeError, optimizeCode, autoFixCode, redebugCode, chatWithAIController, generateMultiLangController } from '../controllers/aiController';
 import { optionalJWT } from '../middleware/auth';
 
 const router = Router();
@@ -9,5 +9,9 @@ router.post('/optimize', optionalJWT, optimizeCode);
 router.post('/auto-fix', optionalJWT, autoFixCode);
 router.post('/repair', optionalJWT, autoFixCode);
 router.post('/redebug', optionalJWT, redebugCode);
+
+// AI Chatbot & Multi-Lang Code Generator Routes
+router.post('/chat', optionalJWT, chatWithAIController);
+router.post('/generate-multi-lang', optionalJWT, generateMultiLangController);
 
 export default router;

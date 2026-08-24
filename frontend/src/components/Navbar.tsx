@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Code2, Terminal, History, PlaySquare, User as UserIcon, LogOut, Sparkles } from 'lucide-react';
+import { Code2, Terminal, History, PlaySquare, User as UserIcon, LogOut, Sparkles, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -43,6 +43,30 @@ export const Navbar: React.FC = () => {
           >
             <Terminal className="w-4 h-4" />
             Editor
+          </Link>
+
+          <Link
+            to="/generator"
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              isActive('/generator')
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            Code Generator
+          </Link>
+
+          <Link
+            to="/interview"
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              isActive('/interview')
+                ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-400" />
+            Interview Arena
           </Link>
 
           {isAuthenticated && (

@@ -1,25 +1,36 @@
 import { Request, Response } from 'express';
 import { DebugOrchestrator } from '../services/execution/DebugOrchestrator';
 import { AIService } from '../services/aiService';
-import { ExecutorFactory } from '../executors/executorFactory';
 import { prisma } from '../utils/prisma';
 
 export const autoFixCode = async (req: Request, res: Response): Promise<void> => {
   try {
     const { language, code, files, entryFile, stdin, userInput } = req.body;
 
-    if (!language || (!code && (!files || files.length === 0))) {
-      res.status(400).json({
+    const targetLanguage = (language || 'python').toLowerCase();
+    let targetCode = (code || '').trim();
+
+    if (!targetCode && Array.isArray(files) && files.length > 0) {
+      const mainFile = files.find((f: any) => f.name === 'main.py' || f.name === 'index.js') || files[0];
+      targetCode = (mainFile?.content || '').trim();
+    }
+
+    if (!targetCode) {
+      res.status(200).json({
         success: false,
         errorReason: 'INVALID_REQUEST',
-        errorMessage: 'Language and source code are required.'
+        errorMessage: 'Source code is empty. Please enter code to repair.',
+        fixedCode: '',
+        finalCode: '',
+        output: '',
+        attempts: 0
       });
       return;
     }
 
     const orchestratorResult = await DebugOrchestrator.autoRepairAndRun({
-      language,
-      code,
+      language: targetLanguage,
+      code: targetCode,
       files,
       entryFile,
       stdin: stdin ?? userInput ?? ''
@@ -68,14 +79,17 @@ export const analyzeError = async (req: Request, res: Response): Promise<void> =
   try {
     const { language, code, stderr, stdout, userInput, executionId } = req.body;
 
-    if (!language || !code) {
+    const targetLanguage = language || 'python';
+    const targetCode = code || '';
+
+    if (!targetCode) {
       res.status(400).json({ success: false, errorReason: 'INVALID_REQUEST', errorMessage: 'Language and code are required.' });
       return;
     }
 
     const analysis = await AIService.analyzeError({
-      language,
-      code,
+      language: targetLanguage,
+      code: targetCode,
       stderr: stderr || '',
       stdout: stdout || '',
       userInput: userInput || ''
@@ -90,7 +104,7 @@ export const analyzeError = async (req: Request, res: Response): Promise<void> =
             explanation: analysis.explanation || '',
             possibleCause: analysis.possibleCause || '',
             suggestedFix: analysis.suggestedFix || '',
-            correctedCode: analysis.correctedCode || code,
+            correctedCode: analysis.correctedCode || targetCode,
             optimizationSuggestions: JSON.stringify(analysis.optimizationSuggestions || [])
           }
         });
@@ -109,14 +123,17 @@ export const optimizeCode = async (req: Request, res: Response): Promise<void> =
   try {
     const { language, code, stdout, userInput } = req.body;
 
-    if (!language || !code) {
+    const targetLanguage = language || 'python';
+    const targetCode = code || '';
+
+    if (!targetCode) {
       res.status(400).json({ success: false, errorReason: 'INVALID_REQUEST', errorMessage: 'Language and code are required.' });
       return;
     }
 
     const optimization = await AIService.optimizeCode({
-      language,
-      code,
+      language: targetLanguage,
+      code: targetCode,
       stdout: stdout || '',
       userInput: userInput || ''
     });
@@ -131,8 +148,8 @@ export const redebugCode = async (req: Request, res: Response): Promise<void> =>
   try {
     const { language, code, files, entryFile, stdin, userInput } = req.body;
     const orchestratorResult = await DebugOrchestrator.autoRepairAndRun({
-      language,
-      code,
+      language: language || 'python',
+      code: code || '',
       files,
       entryFile,
       stdin: stdin ?? userInput ?? ''
@@ -151,5 +168,51 @@ export const redebugCode = async (req: Request, res: Response): Promise<void> =>
     });
   } catch (error: any) {
     res.status(500).json({ success: false, errorReason: 'REDEBUG_ERROR', errorMessage: error.message });
+  }
+};
+
+export const chatWithAIController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { question, message, history } = req.body;
+    const q = (question || message || '').trim();
+
+    if (!q) {
+      res.status(400).json({ success: false, errorMessage: 'Question or message text is required.' });
+      return;
+    }
+
+    const { NvidiaService } = await import('../services/ai/NvidiaService');
+    const reply = await NvidiaService.chatWithAI(q, history || []);
+
+    res.json({
+      success: true,
+      reply,
+      answer: reply
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, errorMessage: error.message || 'Error processing AI chat request.' });
+  }
+};
+
+export const generateMultiLangController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { promptText, question } = req.body;
+    const p = (promptText || question || '').trim();
+
+    if (!p) {
+      res.status(400).json({ success: false, errorMessage: 'Prompt text or question is required.' });
+      return;
+    }
+
+    const { NvidiaService } = await import('../services/ai/NvidiaService');
+    const result = await NvidiaService.generateMultiLangCode(p);
+
+    res.json({
+      success: true,
+      data: result,
+      ...result
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, errorMessage: error.message || 'Error generating multi-language code.' });
   }
 };

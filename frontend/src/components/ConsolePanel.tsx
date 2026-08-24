@@ -61,6 +61,13 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   const [activeTab, setActiveTab] = useState<'output' | 'errors' | 'ai' | 'performance' | 'cases' | 'stdin'>('output');
   const [liveStdinVal, setLiveStdinVal] = useState<string>('');
 
+  // Auto-switch to output tab whenever code is executed or repaired so the user sees the output with 1 click!
+  React.useEffect(() => {
+    if (workflowState === 'running' || workflowState === 'rerunning' || workflowState === 'fixing' || workflowState === 'fixed_successfully' || (status === 'success' && stdout)) {
+      setActiveTab('output');
+    }
+  }, [stdout, stderr, status, workflowState]);
+
   // Test Cases State
   const [testCases, setTestCases] = useState<TestCaseItem[]>([
     { id: 'TC-001', name: 'Normal Factorial (5)', category: 'NORMAL', input: '5', expectedOutput: '120' },
