@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Code2, FolderCode, Activity, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, Code2, FolderCode, Activity, User, LogOut, Award, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
@@ -10,6 +10,8 @@ export const Sidebar: React.FC = () => {
   const links = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/editor', label: 'Code Editor', icon: Code2 },
+    { path: '/generator', label: 'Code Generator', icon: Sparkles },
+    { path: '/interview', label: 'Interview Arena', icon: Award },
     { path: '/history', label: 'My Programs', icon: FolderCode },
     { path: '/executions', label: 'Execution History', icon: Activity },
     { path: '/profile', label: 'Profile & Settings', icon: User }

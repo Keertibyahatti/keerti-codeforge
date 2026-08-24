@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, FolderCode, Activity, Terminal, Cpu, Clock, Sparkles, ChevronRight, Trash2, Copy, CheckCircle2, AlertTriangle, ShieldCheck, Zap, TestTube2 } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
+import { DashboardChatbot } from '../components/DashboardChatbot';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Program, Execution } from '../types';
@@ -160,7 +161,7 @@ export const DashboardPage: React.FC = () => {
 
           </div>
 
-          {/* Main Dashboard Section: Programs & Recent Executions */}
+          {/* Main Dashboard Section: Programs, Recent Executions & Dashboard AI Assistant Chatbot */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
             {/* My Programs List */}
@@ -232,34 +233,13 @@ export const DashboardPage: React.FC = () => {
               )}
             </div>
 
-            {/* Recent Executions History Column */}
+            {/* Dashboard AI Assistant Chatbot Widget */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                Recent Executions
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                AI Assistant Chatbot
               </h2>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-                {recentExecutions.length === 0 ? (
-                  <div className="py-6 text-center text-slate-500 text-xs">No recent execution logs.</div>
-                ) : (
-                  recentExecutions.map((exec) => (
-                    <div key={exec.id} className="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-300 uppercase font-mono">{exec.language}</span>
-                        <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
-                          exec.status === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                        }`}>
-                          {exec.status}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 font-mono truncate">
-                        {exec.stdout || exec.stderr || 'No output'}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <DashboardChatbot />
             </div>
 
           </div>

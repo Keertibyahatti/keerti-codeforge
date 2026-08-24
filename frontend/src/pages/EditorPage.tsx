@@ -142,6 +142,26 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
   // Multi-Agent State
   const [activeAgentName, setActiveAgentName] = useState<string | null>(null);
 
+  // Listen for initialCode and initialLanguage passed from navigation (e.g. Code Generator, Chatbot, Interview Arena)
+  useEffect(() => {
+    if (location.state?.initialCode) {
+      const incomingCode = location.state.initialCode;
+      setCode(incomingCode);
+      setOriginalUserCode(incomingCode);
+      setProjectFiles(prev => prev.map(f => f.path === 'src/main.py' ? { ...f, content: incomingCode } : f));
+    }
+
+    if (location.state?.initialLanguage) {
+      let lang = location.state.initialLanguage.toLowerCase();
+      if (lang === 'typescript' || lang === 'ts') {
+        lang = 'python';
+      }
+      setLanguage(lang);
+    } else {
+      setLanguage('python');
+    }
+  }, [location.state]);
+
   // Keyboard Shortcuts (Ctrl+S to Save, Ctrl+Enter to Run)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -379,7 +399,8 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
       }
     } catch (err: any) {
       setStatus('error');
-      setStderr(err.response?.data?.message || err.message || 'Execution error');
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Execution error';
+      setStderr(msg);
       if (isRerun) {
         setWorkflowState('fix_failed');
         setNotificationMessage('❌ Error fix failed. The corrected code produced an execution error.');
@@ -405,13 +426,14 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
   // AI Auto-Fix Flow
   const handleFixAndReRun = async () => {
     if (isAILoading) return;
+    const submittedCode = code;
     setIsAILoading(true);
     setWorkflowState('fixing');
-    setNotificationMessage('⚡ Running Ollama AI Auto-Fix & Verification Engine (qwen3-coder:30b)...');
+    setNotificationMessage('⚡ Running CodeForge AI Universal Auto-Fix & Verification Engine...');
     try {
       const res = await api.post('/debug/auto-fix', {
-        language,
-        code,
+        language: language || 'python',
+        code: submittedCode || '',
         files: projectFiles,
         stdin: input,
         userInput: input
@@ -420,40 +442,28 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
       if (res.data.success && res.data.finalCode) {
         const fixedCode = res.data.finalCode;
         setCode(fixedCode);
-        setAutoFixModalData({
-          errorType: res.data.explanation?.whatHappened ? res.data.explanation.whatHappened.split(':')[0] : 'Auto-Fix',
-          explanation: res.data.explanation?.howFixed || res.data.message || 'Auto-fix completed.',
-          whatHappened: res.data.explanation?.whatHappened || '',
-          whyItHappened: res.data.explanation?.whyItHappened || '',
-          howFixed: res.data.explanation?.howFixed || '',
-          beforeCode: originalUserCode,
-          afterCode: fixedCode,
-          stdout: res.data.output
-        });
+        setOriginalUserCode(fixedCode);
         setStatus('success');
         setStderr('');
         setStdout(res.data.output || '');
         setExitCode(0);
         setWorkflowState('fixed_successfully');
-        setNotificationMessage(`✅ AUTO-FIX SUCCESS — Code automatically repaired in ${res.data.attempts} attempt(s) and verified cleanly!`);
+        setNotificationMessage(`✅ AUTO-FIX SUCCESS — Code automatically repaired & executed cleanly! Output generated below.`);
       } else {
         setWorkflowState('fix_failed');
         const reason = res.data.reasonCode || 'REPAIR_LIMIT_REACHED';
         if (reason === 'MISSING_INPUT') {
           setNotificationMessage('⚠️ MISSING_INPUT: Program requires interactive user input (STDIN). Please provide input values in the STDIN panel.');
-        } else if (reason === 'OLLAMA_UNAVAILABLE') {
-          setNotificationMessage('⚠️ OLLAMA_UNAVAILABLE: Could not connect to Ollama at http://localhost:11434. Please verify "ollama serve" is active.');
-        } else if (reason === 'OLLAMA_TIMEOUT') {
-          setNotificationMessage('⚠️ OLLAMA_TIMEOUT: Local Ollama model execution timed out. Please retry.');
         } else if (reason === 'REPAIR_NO_PROGRESS') {
           setNotificationMessage('⚠️ REPAIR_NO_PROGRESS: AI generated identical candidate fixes without progress.');
         } else {
-          setNotificationMessage(`❌ REPAIR_LIMIT_REACHED: ${res.data.message || 'Automatic repair reached maximum retry limit.'}`);
+          setNotificationMessage(`❌ REPAIR_LIMIT_REACHED: ${res.data.errorMessage || res.data.message || 'Automatic repair reached maximum retry limit.'}`);
         }
       }
     } catch (err: any) {
       setWorkflowState('fix_failed');
-      setNotificationMessage('❌ Auto-Fix error: ' + (err.response?.data?.message || err.message));
+      const errDetail = err.response?.data?.errorMessage || err.response?.data?.message || err.message;
+      setNotificationMessage('❌ Auto-Fix error: ' + errDetail);
     } finally {
       setIsAILoading(false);
     }
@@ -785,6 +795,7 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
               code={code}
               onChange={(newCode) => {
                 setCode(newCode);
+                setOriginalUserCode(newCode);
                 if (errorLine) setErrorLine(undefined);
               }}
               onRun={handleRunCode}
@@ -903,8 +914,8 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
             whatHappened={autoFixModalData.whatHappened}
             whyItHappened={autoFixModalData.whyItHappened}
             howFixed={autoFixModalData.howFixed}
-            beforeCode={autoFixModalData.changes?.before || 'if n <='}
-            afterCode={autoFixModalData.changes?.after || 'if n <= 1:\n        return 1'}
+            beforeCode={autoFixModalData.beforeCode || autoFixModalData.changes?.before || ''}
+            afterCode={autoFixModalData.afterCode || autoFixModalData.fixedCode || autoFixModalData.changes?.after || ''}
             stdout={autoFixModalData.stdout}
             onApply={async () => {
               const fixed = autoFixModalData.fixedCode;
