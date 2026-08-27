@@ -9,6 +9,8 @@ import { PolyglotTranspileModal } from '../components/PolyglotTranspileModal';
 import { ExecutionVisualizerModal } from '../components/ExecutionVisualizerModal';
 import { AIVoiceExplainerPanel } from '../components/AIVoiceExplainerPanel';
 import { InteractiveQuizModal } from '../components/InteractiveQuizModal';
+import { AICodeGeneratorModal } from '../components/AICodeGeneratorModal';
+import { FloatingVoiceWidget } from '../components/FloatingVoiceWidget';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Program, Execution } from '../types';
@@ -33,6 +35,7 @@ export const DashboardPage: React.FC = () => {
   const [showPolyglot, setShowPolyglot] = useState<boolean>(false);
   const [showVisualizer, setShowVisualizer] = useState<boolean>(false);
   const [showQuiz, setShowQuiz] = useState<boolean>(false);
+  const [showCodeGen, setShowCodeGen] = useState<boolean>(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalPrograms: 0,
     totalExecutions: 0,
@@ -115,6 +118,15 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* AI Code Creator Trigger */}
+              <button
+                onClick={() => setShowCodeGen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/30 transition-all text-xs cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                AI Code Creator
+              </button>
+
               <button
                 onClick={() => setShowPolyglot(true)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-slate-900/90 hover:bg-slate-800 text-purple-300 border border-purple-500/30 transition-all text-xs cursor-pointer shadow-sm"
@@ -161,6 +173,16 @@ export const DashboardPage: React.FC = () => {
           <AIVoiceExplainerPanel
             code={programs[0]?.code || `def solve(nums):\n    total = sum(nums)\n    return total / len(nums) if nums else 0.0\n\nprint(solve([10, 20, 30]))`}
             language={programs[0]?.language || 'python'}
+          />
+
+          {/* AI Code Generator Modal */}
+          <AICodeGeneratorModal
+            isOpen={showCodeGen}
+            onClose={() => setShowCodeGen(false)}
+            currentLanguage={programs[0]?.language || 'python'}
+            onApplyCode={(code, lang) => {
+              navigate('/editor', { state: { initialCode: code, initialLanguage: lang } });
+            }}
           />
 
           {/* AI Deep Code Inspector Modal */}
@@ -328,6 +350,12 @@ export const DashboardPage: React.FC = () => {
 
         </main>
       </div>
+
+      {/* Persistent Floating AI Voice Assistant Widget */}
+      <FloatingVoiceWidget
+        language={programs[0]?.language || 'python'}
+        code={programs[0]?.code || 'print("Welcome to CodeForge AI")'}
+      />
     </div>
   );
 };

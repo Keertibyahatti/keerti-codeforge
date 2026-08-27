@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Award, Clock, Play, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Zap, Code2, ChevronRight, ShieldCheck, Cpu, Terminal, BookOpen, Star, Wand2, Copy, Check } from 'lucide-react';
+import { Award, Clock, Play, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Zap, Code2, ChevronRight, ShieldCheck, Cpu, Terminal, BookOpen, Star, Wand2, Copy, Check, Volume2, VolumeX, Square } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
+import { VoiceAssistant } from '../utils/voiceHelper';
+import { FloatingVoiceWidget } from '../components/FloatingVoiceWidget';
 
 interface ProblemItem {
   id: string;
@@ -52,8 +54,9 @@ export const InterviewPage: React.FC = () => {
   const [testExitCode, setTestExitCode] = useState<number | undefined>(undefined);
   const [testExecutionTime, setTestExecutionTime] = useState<number | undefined>(undefined);
 
-  // AI Auto-Fix State
+  // AI Auto-Fix & Voice State
   const [isAIFixing, setIsAIFixing] = useState<boolean>(false);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState<boolean>(false);
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -587,15 +590,41 @@ export const InterviewPage: React.FC = () => {
                           <AlertTriangle className="w-3.5 h-3.5" /> Standard Error (stderr):
                         </span>
                         
-                        {/* 1-Click AI Auto-Fix Trigger */}
-                        <button
-                          onClick={handleAIFix}
-                          disabled={isAIFixing}
-                          className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
-                        >
-                          <Wand2 className={`w-3.5 h-3.5 text-amber-300 ${isAIFixing ? 'animate-spin' : ''}`} />
-                          {isAIFixing ? 'Fixing Code...' : '⚡ AI Auto-Fix & Re-Run'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* AI Voice Speech Button */}
+                          <button
+                            onClick={() => {
+                              if (isVoiceSpeaking) {
+                                VoiceAssistant.stop();
+                                setIsVoiceSpeaking(false);
+                              } else {
+                                VoiceAssistant.speakError({
+                                  language: selectedLang,
+                                  stderr: testStderr,
+                                  code
+                                }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isVoiceSpeaking
+                                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20'
+                                : 'bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30'
+                            }`}
+                          >
+                            {isVoiceSpeaking ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
+                            {isVoiceSpeaking ? 'Stop Voice' : '🎙️ Listen to AI Voice'}
+                          </button>
+
+                          {/* 1-Click AI Auto-Fix Trigger */}
+                          <button
+                            onClick={handleAIFix}
+                            disabled={isAIFixing}
+                            className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+                          >
+                            <Wand2 className={`w-3.5 h-3.5 text-amber-300 ${isAIFixing ? 'animate-spin' : ''}`} />
+                            {isAIFixing ? 'Fixing Code...' : '⚡ AI Auto-Fix & Re-Run'}
+                          </button>
+                        </div>
                       </div>
 
                       <pre className="p-3 bg-slate-950 rounded-xl border border-rose-500/30 text-xs font-mono text-rose-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
@@ -705,6 +734,13 @@ export const InterviewPage: React.FC = () => {
         )}
 
       </main>
+
+      {/* Persistent Floating AI Voice Assistant Widget */}
+      <FloatingVoiceWidget
+        language={selectedLang}
+        code={code}
+        stderr={testStderr}
+      />
 
       <Footer />
     </div>

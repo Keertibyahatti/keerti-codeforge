@@ -11,14 +11,13 @@ int main() {
 
   const res = await DebugOrchestrator.autoRepairAndRun({
     language: 'cpp',
-    code: brokenCpp,
-    maxAttempts: 3
+    code: brokenCpp
   });
 
   console.log('C++ Auto-Fix Success:', res.success);
   console.log('Final Code:\n', res.finalCode);
   console.log('Output:\n', res.output);
-  console.log('Exit Code:', res.exitCode);
+  console.log('Error:', res.error);
 }
 
 testCppAutoFix().catch(console.error);

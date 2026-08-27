@@ -523,10 +523,11 @@ Respond with ONLY a JSON object matching this interface:
     const undefinedVar = nameErrMatch ? nameErrMatch[1] : 'variable';
     const suggestedVar = didYouMeanMatch ? didYouMeanMatch[1] : 'declared_variable';
 
+    const targetLang = (req.language || 'python').toUpperCase();
     return {
       summary: stderr ? stderr.split('\n')[0] : 'Execution Error captured.',
       errorType: stderr.includes('SyntaxError') ? 'SyntaxError' : (stderr.includes('NameError') ? 'NameError' : (stderr.includes('TypeError') ? 'TypeError' : 'RuntimeError')),
-      explanation: `What happened? The ${language.toUpperCase()} runtime encountered an execution issue: ${stderr.trim().split('\n')[0]}\nWhy? Statement contracts or identifier names were violated.\nHow to fix it? Review the highlighted error line and update syntax according to language rules.`,
+      explanation: `What happened? The ${targetLang} runtime encountered an execution issue: ${stderr.trim().split('\n')[0]}\nWhy? Statement contracts or identifier names were violated.\nHow to fix it? Review the highlighted error line and update syntax according to language rules.`,
       possibleCause: 'Unresolved identifier reference or syntax operator mismatch.',
       suggestedFix: `Update error statement to conform to valid language syntax.`,
       correctedCode: code,

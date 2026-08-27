@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Play, RotateCcw, AlertTriangle, CheckCircle2, XCircle, Sparkles, Clock, ArrowRight, Wand2, RefreshCw, Terminal, Ban, FileText, Cpu, CheckSquare, Plus, Trash2, Edit3, Save, X, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, RotateCcw, AlertTriangle, CheckCircle2, XCircle, Sparkles, Clock, ArrowRight, Wand2, RefreshCw, Terminal, Ban, FileText, Cpu, CheckSquare, Plus, Trash2, Edit3, Save, X, Activity, Volume2, VolumeX, Mic, Square } from 'lucide-react';
 import { AIAnalysisResponse } from '../types';
 import api from '../services/api';
+import { VoiceAssistant } from '../utils/voiceHelper';
 
 export interface TestCaseItem {
   id: string;
@@ -60,13 +61,33 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'output' | 'errors' | 'ai' | 'performance' | 'cases' | 'stdin'>('output');
   const [liveStdinVal, setLiveStdinVal] = useState<string>('');
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState<boolean>(false);
+  const [autoVoice, setAutoVoice] = useState<boolean>(VoiceAssistant.isAutoVoiceEnabled());
 
-  // Auto-switch to output tab whenever code is executed or repaired so the user sees the output with 1 click!
-  React.useEffect(() => {
+  // Auto-switch to output or error tab and speak error if autoVoice is enabled
+  useEffect(() => {
     if (workflowState === 'running' || workflowState === 'rerunning' || workflowState === 'fixing' || workflowState === 'fixed_successfully' || (status === 'success' && stdout)) {
       setActiveTab('output');
     }
   }, [stdout, stderr, status, workflowState]);
+
+  // Voice narration when an error occurs
+  useEffect(() => {
+    if (stderr && stderr.trim().length > 0 && autoVoice && (status === 'error' || exitCode !== 0 || workflowState === 'error_detected')) {
+      const errType = stderr.includes('ZeroDivisionError') ? 'ZeroDivisionError'
+        : stderr.includes('NameError') ? 'NameError'
+        : stderr.includes('SyntaxError') ? 'SyntaxError'
+        : stderr.includes('IndexError') ? 'IndexError'
+        : stderr.includes('TypeError') ? 'TypeError' : 'RuntimeError';
+
+      VoiceAssistant.speakError({
+        language,
+        errorType: errType,
+        errorLine,
+        stderr
+      }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+    }
+  }, [stderr, exitCode, status, workflowState, autoVoice, language, errorLine]);
 
   // Test Cases State
   const [testCases, setTestCases] = useState<TestCaseItem[]>([
@@ -327,6 +348,32 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {stderr && stderr.trim().length > 0 && (
+            <button
+              onClick={() => {
+                if (isVoiceSpeaking) {
+                  VoiceAssistant.stop();
+                  setIsVoiceSpeaking(false);
+                } else {
+                  VoiceAssistant.speakError({
+                    language,
+                    errorType: parseErrorType(),
+                    errorLine,
+                    stderr
+                  }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-xs cursor-pointer transition-all ${
+                isVoiceSpeaking
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse shadow-md shadow-rose-600/30'
+                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/20'
+              }`}
+              title="Listen to AI Voice explain the error and how to handle it"
+            >
+              {isVoiceSpeaking ? <Square className="w-3.5 h-3.5 fill-current" /> : <Volume2 className="w-3.5 h-3.5" />}
+              {isVoiceSpeaking ? 'Stop Voice' : '🎙️ Speak Error & Fix'}
+            </button>
+          )}
           {getStatusBadge()}
           <button
             onClick={onClear}
@@ -344,6 +391,72 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
         {/* Output Tab */}
         {activeTab === 'output' && (
           <div className="space-y-3">
+            {/* Direct Voice Error & Auto-Fix Banner in Output Tab */}
+            {stderr && stderr.trim().length > 0 && (
+              <div className="p-3.5 bg-gradient-to-r from-purple-950/60 via-slate-900 to-rose-950/40 border border-purple-500/40 rounded-xl space-y-2.5 font-sans shadow-lg animate-in fade-in">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                      <Mic className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-100 text-xs flex items-center gap-1.5">
+                        <span>🎙️ AI Voice Error Assistant</span>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono">
+                          {parseErrorType()}
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Listen to verbal diagnosis & how to resolve it</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (isVoiceSpeaking) {
+                          VoiceAssistant.stop();
+                          setIsVoiceSpeaking(false);
+                        } else {
+                          VoiceAssistant.speakError({
+                            language,
+                            errorType: parseErrorType(),
+                            errorLine,
+                            stderr
+                          }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs cursor-pointer shadow-md transition-all ${
+                        isVoiceSpeaking
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20 animate-pulse'
+                          : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+                      }`}
+                    >
+                      {isVoiceSpeaking ? <Square className="w-3.5 h-3.5 fill-current" /> : <Volume2 className="w-3.5 h-3.5" />}
+                      {isVoiceSpeaking ? 'Stop Voice' : '🎙️ Listen to AI Voice'}
+                    </button>
+
+                    <button
+                      onClick={onFixAndReRun}
+                      disabled={isAILoading}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                    >
+                      <Wand2 className="w-3.5 h-3.5 text-amber-300" />
+                      ⚡ 1-Click AI Fix
+                    </button>
+                  </div>
+                </div>
+
+                {isVoiceSpeaking && (
+                  <div className="flex items-center gap-1 py-1 px-3 bg-slate-950/80 rounded-lg border border-purple-500/30 font-mono text-[10px] text-purple-300">
+                    <span className="w-1 h-3 bg-purple-400 rounded-full animate-pulse" />
+                    <span className="w-1 h-4 bg-purple-300 rounded-full animate-pulse delay-75" />
+                    <span className="w-1 h-2 bg-purple-500 rounded-full animate-pulse delay-150" />
+                    <span className="pl-2">AI Neural Mentor speaking error explanation and solution...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-sans border-b border-slate-800/60 pb-1">
               <span>Standard Output Stream (stdout)</span>
               {executionTime !== undefined && (
@@ -663,6 +776,72 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
                       </>
                     );
                   })()}
+                </div>
+
+                {/* AI Voice Speech & Solution Bar */}
+                <div className="p-3 bg-slate-950/80 rounded-xl border border-purple-500/20 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        if (isVoiceSpeaking) {
+                          VoiceAssistant.stop();
+                          setIsVoiceSpeaking(false);
+                        } else {
+                          const errType = stderr.includes('ZeroDivisionError') ? 'ZeroDivisionError'
+                            : stderr.includes('NameError') ? 'NameError'
+                            : stderr.includes('SyntaxError') ? 'SyntaxError'
+                            : stderr.includes('IndexError') ? 'IndexError'
+                            : stderr.includes('TypeError') ? 'TypeError' : 'RuntimeError';
+
+                          VoiceAssistant.speakError({
+                            language,
+                            errorType: errType,
+                            errorLine,
+                            stderr
+                          }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-xs cursor-pointer transition-all ${
+                        isVoiceSpeaking
+                          ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20'
+                          : 'bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40'
+                      }`}
+                    >
+                      {isVoiceSpeaking ? <Square className="w-3.5 h-3.5 fill-current" /> : <Volume2 className="w-3.5 h-3.5" />}
+                      {isVoiceSpeaking ? 'Stop Voice' : '🎙️ Listen to AI Voice Explanation'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const nextVal = !autoVoice;
+                        setAutoVoice(nextVal);
+                        VoiceAssistant.setAutoVoiceEnabled(nextVal);
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all border ${
+                        autoVoice
+                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                          : 'bg-slate-900 text-slate-400 border-slate-800'
+                      }`}
+                      title="Toggle automatic voice narration whenever an error occurs"
+                    >
+                      {autoVoice ? <Volume2 className="w-3 h-3 text-emerald-400" /> : <VolumeX className="w-3 h-3 text-slate-500" />}
+                      <span>Auto-Voice: {autoVoice ? 'ON' : 'OFF'}</span>
+                    </button>
+                  </div>
+
+                  {/* Equalizer animation when speaking */}
+                  {isVoiceSpeaking && (
+                    <div className="flex items-center gap-1 pt-1">
+                      {[30, 70, 100, 50, 85, 40, 90, 60, 100, 45].map((h, i) => (
+                        <span
+                          key={i}
+                          style={{ height: `${h}%` }}
+                          className="w-1 bg-gradient-to-t from-purple-500 to-cyan-400 rounded-full animate-pulse h-4"
+                        />
+                      ))}
+                      <span className="text-[10px] font-mono text-purple-300 pl-2">AI Neural Mentor is explaining how to handle this error...</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">

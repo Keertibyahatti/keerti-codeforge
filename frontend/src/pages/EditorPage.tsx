@@ -23,6 +23,9 @@ import { PolyglotTranspileModal } from '../components/PolyglotTranspileModal';
 import { ExecutionVisualizerModal } from '../components/ExecutionVisualizerModal';
 import { AIVoiceExplainerPanel } from '../components/AIVoiceExplainerPanel';
 import { InteractiveQuizModal } from '../components/InteractiveQuizModal';
+import { AICodeGeneratorModal } from '../components/AICodeGeneratorModal';
+import { AIPromptBar } from '../components/AIPromptBar';
+import { FloatingVoiceWidget } from '../components/FloatingVoiceWidget';
 import api from '../services/api';
 import { AIAnalysisResponse } from '../types';
 import { isCodeValidSyntax } from '../utils/validation';
@@ -131,6 +134,7 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
   const [isPolyglotOpen, setIsPolyglotOpen] = useState(false);
   const [isVisualizerOpen, setIsVisualizerOpen] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
 
   // Security Scanner State
   const [securityScore, setSecurityScore] = useState<number>(95);
@@ -638,6 +642,15 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
             Iterative Re-Debug
           </button>
 
+          {/* AI Code Creator / Generator Button */}
+          <button
+            onClick={() => setIsCodeGenOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-lg transition-all cursor-pointer shadow-md shadow-purple-600/30 text-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+            AI Code Creator
+          </button>
+
           {/* Polyglot Multi-Language Transpiler */}
           <button
             onClick={() => setIsPolyglotOpen(true)}
@@ -709,6 +722,24 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
       {/* AI Voice & Audio Mentor Bar */}
       <div className="px-4 pt-1">
         <AIVoiceExplainerPanel code={code} language={language} />
+      </div>
+
+      {/* AI Prompt-to-Code Synthesizer Bar */}
+      <div className="px-4 pt-1">
+        <AIPromptBar
+          currentLanguage={language}
+          onCodeGenerated={(newCode, newLang, autoRun) => {
+            setCode(newCode);
+            setOriginalUserCode(newCode);
+            if (newLang) setLanguage(newLang);
+            setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+            setNotificationMessage('✨ Generated code from prompt successfully!');
+            if (autoRun) {
+              executeCodePayload(newCode, newLang || language, false);
+            }
+          }}
+          onOpenFullGenerator={() => setIsCodeGenOpen(true)}
+        />
       </div>
 
       <main className="flex-1 p-3 lg:p-4 space-y-3 max-w-[1800px] w-full mx-auto flex flex-col">
@@ -1078,6 +1109,31 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
           onClose={() => setIsQuizOpen(false)}
           code={code}
           language={language}
+        />
+
+        {/* Full-Fledged AI Code Generator Modal */}
+        <AICodeGeneratorModal
+          isOpen={isCodeGenOpen}
+          onClose={() => setIsCodeGenOpen(false)}
+          currentLanguage={language}
+          onApplyCode={(newCode, newLang, autoRun) => {
+            setCode(newCode);
+            setOriginalUserCode(newCode);
+            if (newLang) setLanguage(newLang);
+            setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+            setNotificationMessage('✨ Applied AI generated code to editor!');
+            if (autoRun) {
+              executeCodePayload(newCode, newLang || language, false);
+            }
+          }}
+        />
+
+        {/* Persistent Floating AI Voice Assistant Widget */}
+        <FloatingVoiceWidget
+          language={language}
+          code={code}
+          stderr={stderr}
+          errorLine={errorLine}
         />
 
       </main>

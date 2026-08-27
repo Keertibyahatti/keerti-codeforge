@@ -224,3 +224,32 @@ export const generateMultiLangController = async (req: Request, res: Response): 
     res.status(500).json({ success: false, errorMessage: error.message || 'Error generating multi-language code.' });
   }
 };
+
+export const generateCodeFromPromptController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { prompt, promptText, question, language, complexity, includeComments, includeTestCases } = req.body;
+    const userPrompt = (prompt || promptText || question || '').trim();
+
+    if (!userPrompt) {
+      res.status(400).json({ success: false, errorMessage: 'Prompt specification is required to generate code.' });
+      return;
+    }
+
+    const { CodeGeneratorEngine } = await import('../services/ai/CodeGeneratorEngine');
+    const result = await CodeGeneratorEngine.generateCode({
+      prompt: userPrompt,
+      language: language || 'python',
+      complexity: complexity || 'optimal',
+      includeComments: includeComments !== false,
+      includeTestCases: includeTestCases !== false
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      ...result
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, errorMessage: error.message || 'Error generating code from prompt.' });
+  }
+};

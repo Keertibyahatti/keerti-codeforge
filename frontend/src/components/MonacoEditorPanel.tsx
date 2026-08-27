@@ -347,7 +347,7 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
       const model = editorRef.current.getModel();
       if (!model) return;
 
-      if (errorLine && status && status !== 'success') {
+      if (errorLine && errorLine > 0 && status !== 'success') {
         let msg = `Execution error on Line ${errorLine}`;
 
         if (status === 'syntax_error') {
@@ -378,12 +378,14 @@ export const MonacoEditorPanel: React.FC<MonacoEditorPanelProps> = ({
             severity: monacoRef.current.MarkerSeverity.Error
           }
         ]);
-        editorRef.current.revealLineInCenter(errorLine);
+        try {
+          editorRef.current.revealLineInCenter(errorLine);
+        } catch {}
       } else {
         monacoRef.current.editor.setModelMarkers(model, 'codeforge-syntax', []);
       }
     }
-  }, [status, errorLine, missingSymbol, missingOperand, wrongSymbol, suggestedFixSymbol]);
+  }, [status, errorLine, missingSymbol, missingOperand, wrongSymbol, suggestedFixSymbol, errorSnippet]);
 
   const getMonacoLanguage = (lang: string) => {
     switch (lang.toLowerCase()) {
