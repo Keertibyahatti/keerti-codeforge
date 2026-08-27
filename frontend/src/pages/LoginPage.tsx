@@ -105,6 +105,26 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
+          <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2 text-xs">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="font-semibold text-slate-300">Demo Account Credentials:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('demo@codeforge.ai');
+                  setPassword('demo123456');
+                }}
+                className="text-blue-400 hover:text-blue-300 font-bold underline cursor-pointer"
+              >
+                Auto-fill
+              </button>
+            </div>
+            <div className="font-mono text-[11px] text-slate-400 space-y-0.5">
+              <div>Email: <span className="text-emerald-400">demo@codeforge.ai</span></div>
+              <div>Password: <span className="text-amber-400">demo123456</span></div>
+            </div>
+          </div>
+
           <div className="text-center text-xs text-slate-400 border-t border-slate-800/80 pt-4">
             Don't have an account?{' '}
             <Link to="/register" className="text-blue-400 font-semibold hover:underline">

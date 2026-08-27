@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Award, Clock, Play, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Zap, Code2, ChevronRight, ShieldCheck, Cpu, Terminal, BookOpen, Star } from 'lucide-react';
+import { Award, Clock, Play, CheckCircle2, AlertTriangle, HelpCircle, RefreshCw, Zap, Code2, ChevronRight, ShieldCheck, Cpu, Terminal, BookOpen, Star, Wand2, Copy, Check, Volume2, VolumeX, Square } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
+import { VoiceAssistant } from '../utils/voiceHelper';
+import { FloatingVoiceWidget } from '../components/FloatingVoiceWidget';
 
 interface ProblemItem {
   id: string;
@@ -44,6 +46,19 @@ export const InterviewPage: React.FC = () => {
   const [userInput, setUserInput] = useState<string>('');
   const [timeRemaining, setTimeRemaining] = useState<number>(15 * 60);
   const [timerRunning, setTimerRunning] = useState<boolean>(false);
+  
+  // Execution & Test Run States
+  const [isRunningTest, setIsRunningTest] = useState<boolean>(false);
+  const [testOutput, setTestOutput] = useState<string>('');
+  const [testStderr, setTestStderr] = useState<string>('');
+  const [testExitCode, setTestExitCode] = useState<number | undefined>(undefined);
+  const [testExecutionTime, setTestExecutionTime] = useState<number | undefined>(undefined);
+
+  // AI Auto-Fix & Voice State
+  const [isAIFixing, setIsAIFixing] = useState<boolean>(false);
+  const [isVoiceSpeaking, setIsVoiceSpeaking] = useState<boolean>(false);
+
+  // Submission State
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [activeHintIndex, setActiveHintIndex] = useState<number>(-1);
@@ -80,11 +95,15 @@ export const InterviewPage: React.FC = () => {
 
   const selectProblemItem = (prob: ProblemItem) => {
     setSelectedProblem(prob);
-    setCode(prob.starterCodes[selectedLang] || prob.starterCodes['python'] || '');
+    const starter = prob.starterCodes[selectedLang] || prob.starterCodes['python'] || '';
+    setCode(starter);
     setUserInput(prob.defaultInput || '');
     setTimeRemaining(prob.timeLimitMinutes * 60);
     setTimerRunning(true);
     setEvaluation(null);
+    setTestOutput('');
+    setTestStderr('');
+    setTestExitCode(undefined);
     setActiveHintIndex(-1);
   };
 
@@ -102,14 +121,86 @@ export const InterviewPage: React.FC = () => {
     setCode(starter);
     setUserInput(selectedProblem.defaultInput || '');
     setEvaluation(null);
+    setTestOutput('');
+    setTestStderr('');
+    setTestExitCode(undefined);
     setNotificationMessage('Starter code reset successfully!');
     setTimeout(() => setNotificationMessage(null), 2500);
   };
 
+  // 1. Interactive Test Run Action with Custom STDIN Input
+  const handleRunTest = async () => {
+    if (!code.trim() || isRunningTest) return;
+    setIsRunningTest(true);
+    setTestOutput('');
+    setTestStderr('');
+    setTestExitCode(undefined);
+    setNotificationMessage('⚡ Executing test run with current STDIN input...');
+
+    try {
+      const res = await api.post('/executions', {
+        language: selectedLang,
+        code,
+        input: userInput
+      });
+
+      setTestOutput(res.data.stdout || '');
+      setTestStderr(res.data.stderr || '');
+      setTestExitCode(res.data.exitCode ?? (res.data.status === 'success' ? 0 : 1));
+      setTestExecutionTime(res.data.executionTime);
+
+      if (res.data.status === 'success' && (res.data.exitCode === 0 || res.data.exitCode === undefined)) {
+        setNotificationMessage('✅ Test run completed successfully with Exit Code 0!');
+      } else {
+        setNotificationMessage('⚠️ Execution error detected in test run. Click "AI Auto-Fix" to repair.');
+      }
+    } catch (err: any) {
+      setTestStderr(err.response?.data?.message || err.message || 'Execution error');
+      setTestExitCode(1);
+      setNotificationMessage('❌ Test run failed to execute.');
+    } finally {
+      setIsRunningTest(false);
+      setTimeout(() => setNotificationMessage(null), 3500);
+    }
+  };
+
+  // 2. 1-Click AI Auto-Fix & Re-Run in Interview Arena
+  const handleAIFix = async () => {
+    if (!code.trim() || isAIFixing) return;
+    setIsAIFixing(true);
+    setNotificationMessage('⚡ CodeForge AI is analyzing and repairing code errors...');
+
+    try {
+      const res = await api.post('/debug/auto-fix', {
+        language: selectedLang,
+        code,
+        stdin: userInput,
+        userInput: userInput
+      });
+
+      if (res.data.success && res.data.finalCode) {
+        setCode(res.data.finalCode);
+        setTestOutput(res.data.output || res.data.stdout || '');
+        setTestStderr('');
+        setTestExitCode(0);
+        setNotificationMessage('✅ AI Auto-Fix Successful — Code repaired and verified with Exit Code 0!');
+      } else {
+        const errorMsg = res.data.errorMessage || res.data.message || 'Auto-fix could not fully resolve error.';
+        setTestStderr(errorMsg);
+        setNotificationMessage(`⚠️ AI Auto-Fix: ${errorMsg}`);
+      }
+    } catch (err: any) {
+      setNotificationMessage('❌ AI Auto-Fix failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsAIFixing(false);
+      setTimeout(() => setNotificationMessage(null), 4000);
+    }
+  };
+
+  // 3. Full Solution Submission to AI Interviewer
   const handleSubmitSolution = async () => {
     if (!selectedProblem || isSubmitting) return;
 
-    // Check if user has actually written code (not just unedited starter code / pass / TODO)
     const starter = selectedProblem.starterCodes[selectedLang] || selectedProblem.starterCodes['python'] || '';
     const cleanCode = code.replace(/#.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').trim();
     
@@ -138,6 +229,7 @@ export const InterviewPage: React.FC = () => {
       setEvaluation(res.data);
     } catch (err: any) {
       console.error('Error submitting interview solution:', err);
+      setNotificationMessage('❌ Evaluation error: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsSubmitting(false);
     }
@@ -277,7 +369,7 @@ export const InterviewPage: React.FC = () => {
 
                 <h2 className="text-lg font-bold text-slate-100">{selectedProblem.title}</h2>
 
-                <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-xl border border-slate-800/80">
+                <p className="text-xs text-slate-300 leading-relaxed font-sans bg-slate-950 p-4 rounded-xl border border-slate-800/80 whitespace-pre-wrap">
                   {selectedProblem.description}
                 </p>
 
@@ -337,11 +429,11 @@ export const InterviewPage: React.FC = () => {
 
             </div>
 
-            {/* Right Column (7 cols): Monaco Editor & Evaluation Scorecard */}
+            {/* Right Column (7 cols): Monaco Editor, Custom Input & Output/Scorecard */}
             <div className="lg:col-span-7 space-y-6">
               
               {/* Code Editor Box */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[520px]">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[500px]">
                 
                 {/* Editor Header Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-slate-950 border-b border-slate-800">
@@ -365,15 +457,29 @@ export const InterviewPage: React.FC = () => {
                       className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-semibold transition-all cursor-pointer"
                       title="Reset to Starter Template"
                     >
-                      Reset Starter Code
+                      Reset Code
                     </button>
+
+                    {/* Test Run Button */}
+                    <button
+                      onClick={handleRunTest}
+                      disabled={isRunningTest || isSubmitting}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                      title="Run code with current STDIN input"
+                    >
+                      {isRunningTest ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                      {isRunningTest ? 'Running...' : 'Run Code (Test)'}
+                    </button>
+
+                    {/* Full Submit Button */}
                     <button
                       onClick={handleSubmitSolution}
-                      disabled={isSubmitting}
-                      className="flex items-center gap-2 px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                      disabled={isSubmitting || isRunningTest}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                      title="Submit solution for full AI evaluation"
                     >
-                      {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                      {isSubmitting ? 'Evaluating...' : 'Submit to AI Interviewer'}
+                      {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Award className="w-3.5 h-3.5" />}
+                      {isSubmitting ? 'Evaluating...' : 'Submit Solution'}
                     </button>
                   </div>
                 </div>
@@ -398,27 +504,134 @@ export const InterviewPage: React.FC = () => {
 
                 {/* Toast Notification Bar */}
                 {notificationMessage && (
-                  <div className="px-4 py-2 bg-emerald-950/90 border-t border-emerald-700 text-emerald-300 text-xs font-semibold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    {notificationMessage}
+                  <div className="px-4 py-2 bg-slate-950/95 border-t border-slate-800 text-slate-200 text-xs font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      {notificationMessage}
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Interactive STDIN input panel for interactive problems */}
-              {selectedProblem.defaultInput && (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+              {/* Editable Custom STDIN Input Panel */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2.5 shadow-xl">
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-blue-400" />
-                    Interactive Input (STDIN):
+                    <Terminal className="w-4 h-4 text-amber-400" />
+                    Custom Input (STDIN) — Editable:
                   </label>
-                  <textarea
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    rows={2}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 text-xs font-mono text-slate-200 rounded-xl p-3 focus:outline-none"
-                    placeholder="Enter input values separated by newlines..."
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUserInput(selectedProblem.defaultInput || '5')}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded text-[11px] font-mono border border-slate-700 cursor-pointer transition-colors"
+                    >
+                      Reset Default Input
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRunTest}
+                      disabled={isRunningTest}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded text-[11px] flex items-center gap-1 cursor-pointer transition-colors shadow-sm shadow-amber-600/20"
+                    >
+                      <Play className="w-3 h-3 fill-current" /> Run with this Input
+                    </button>
+                  </div>
+                </div>
+
+                <textarea
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 text-xs font-mono text-slate-100 rounded-xl p-3 focus:outline-none leading-relaxed resize-y"
+                  placeholder="Enter input values separated by newlines (e.g. 5 or Pooja\n85\n75)..."
+                />
+              </div>
+
+              {/* Live Test Run Output Card */}
+              {(testOutput || testStderr || testExitCode !== undefined) && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl animate-fade-in">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold text-slate-200">Execution Output (Test Run):</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {testExecutionTime !== undefined && (
+                        <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-500" /> {testExecutionTime} ms
+                        </span>
+                      )}
+
+                      <span className={`px-2 py-0.5 rounded font-mono text-[10px] font-bold ${
+                        testExitCode === 0
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        Exit Code: {testExitCode ?? 0}
+                      </span>
+                    </div>
+                  </div>
+
+                  {testOutput && (
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">Standard Output (stdout):</span>
+                      <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                        {testOutput}
+                      </pre>
+                    </div>
+                  )}
+
+                  {testStderr && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider font-mono flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5" /> Standard Error (stderr):
+                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          {/* AI Voice Speech Button */}
+                          <button
+                            onClick={() => {
+                              if (isVoiceSpeaking) {
+                                VoiceAssistant.stop();
+                                setIsVoiceSpeaking(false);
+                              } else {
+                                VoiceAssistant.speakError({
+                                  language: selectedLang,
+                                  stderr: testStderr,
+                                  code
+                                }, () => setIsVoiceSpeaking(true), () => setIsVoiceSpeaking(false));
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isVoiceSpeaking
+                                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20'
+                                : 'bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/30'
+                            }`}
+                          >
+                            {isVoiceSpeaking ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
+                            {isVoiceSpeaking ? 'Stop Voice' : '🎙️ Listen to AI Voice'}
+                          </button>
+
+                          {/* 1-Click AI Auto-Fix Trigger */}
+                          <button
+                            onClick={handleAIFix}
+                            disabled={isAIFixing}
+                            className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+                          >
+                            <Wand2 className={`w-3.5 h-3.5 text-amber-300 ${isAIFixing ? 'animate-spin' : ''}`} />
+                            {isAIFixing ? 'Fixing Code...' : '⚡ AI Auto-Fix & Re-Run'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <pre className="p-3 bg-slate-950 rounded-xl border border-rose-500/30 text-xs font-mono text-rose-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                        {testStderr}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -452,6 +665,17 @@ export const InterviewPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
+
+                    {!evaluation.success && (
+                      <button
+                        onClick={handleAIFix}
+                        disabled={isAIFixing}
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Wand2 className="w-4 h-4 text-amber-300" />
+                        AI Auto-Fix & Re-Evaluate
+                      </button>
+                    )}
                   </div>
 
                   {/* Feedback Cards Grid */}
@@ -492,6 +716,15 @@ export const InterviewPage: React.FC = () => {
                       <pre className="text-xs font-mono text-emerald-400 whitespace-pre-wrap">{evaluation.stdout}</pre>
                     </div>
                   )}
+
+                  {evaluation.stderr && (
+                    <div className="bg-slate-950 p-4 rounded-xl border border-rose-500/30 space-y-2">
+                      <span className="text-xs font-bold text-rose-400 font-mono flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Errors Encountered:
+                      </span>
+                      <pre className="text-xs font-mono text-rose-300 whitespace-pre-wrap">{evaluation.stderr}</pre>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -501,6 +734,13 @@ export const InterviewPage: React.FC = () => {
         )}
 
       </main>
+
+      {/* Persistent Floating AI Voice Assistant Widget */}
+      <FloatingVoiceWidget
+        language={selectedLang}
+        code={code}
+        stderr={testStderr}
+      />
 
       <Footer />
     </div>

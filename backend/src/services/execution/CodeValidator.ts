@@ -92,7 +92,7 @@ export class CodeValidator {
       }
     }
 
-    // 3. C / C++ Syntax Check (gcc / g++ -fsyntax-only)
+    // 3. C / C++ Syntax Check (gcc / g++ -fsyntax-only or Static AST validator)
     if (lang === 'c' || lang === 'cpp' || lang === 'c++') {
       const isCpp = lang.includes('c++') || lang === 'cpp';
       const compiler = isCpp ? 'g++' : 'gcc';
@@ -103,18 +103,29 @@ export class CodeValidator {
         fs.writeFileSync(tmpFile, cleanedCode, 'utf8');
         execSync(`${compiler} -fsyntax-only "${tmpFile}"`, { stdio: 'pipe' });
       } catch (err: any) {
-        // If gcc/g++ is installed and throws syntax error
         if (err.stderr) {
           const stderr = err.stderr.toString('utf8');
-          return {
-            valid: false,
-            code: cleanedCode,
-            error: stderr,
-            reason: `${compiler} syntax check detected errors.`
-          };
+          if (!stderr.includes('not recognized') && !stderr.includes('not found') && !stderr.includes('ENOENT')) {
+            return {
+              valid: false,
+              code: cleanedCode,
+              error: stderr,
+              reason: `${compiler} syntax check detected errors.`
+            };
+          }
         }
       } finally {
         try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      }
+
+      // Check missing main()
+      if (!/int\s+main\s*\(/.test(cleanedCode) && !/void\s+main\s*\(/.test(cleanedCode) && !/main\s*\(/.test(cleanedCode)) {
+        return {
+          valid: false,
+          code: cleanedCode,
+          error: `main.${ext}: error: undefined reference to 'main'`,
+          reason: 'Missing main function declaration.'
+        };
       }
     }
 

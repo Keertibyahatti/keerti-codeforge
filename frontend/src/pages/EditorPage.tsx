@@ -17,10 +17,19 @@ import { GitControlPanel } from '../components/GitControlPanel';
 import { ArchitecturePanel } from '../components/ArchitecturePanel';
 import { PipelineBar } from '../components/PipelineBar';
 import { DebugPipelineVisualizer } from '../components/DebugPipelineVisualizer';
+import { AIChatbotPanel } from '../components/AIChatbotPanel';
+import { AIDeepInspectorModal } from '../components/AIDeepInspectorModal';
+import { PolyglotTranspileModal } from '../components/PolyglotTranspileModal';
+import { ExecutionVisualizerModal } from '../components/ExecutionVisualizerModal';
+import { AIVoiceExplainerPanel } from '../components/AIVoiceExplainerPanel';
+import { InteractiveQuizModal } from '../components/InteractiveQuizModal';
+import { AICodeGeneratorModal } from '../components/AICodeGeneratorModal';
+import { AIPromptBar } from '../components/AIPromptBar';
+import { FloatingVoiceWidget } from '../components/FloatingVoiceWidget';
 import api from '../services/api';
 import { AIAnalysisResponse } from '../types';
 import { isCodeValidSyntax } from '../utils/validation';
-import { Award, Sparkles, ShieldCheck, TestTube2, Cpu, Bot, Folder, Play, Square, Save, GitBranch, Layers, RotateCcw, RefreshCw, Network, GitCommit } from 'lucide-react';
+import { Award, Sparkles, ShieldCheck, TestTube2, Cpu, Bot, Folder, Play, Square, Save, GitBranch, Layers, RotateCcw, RefreshCw, Network, GitCommit, MessageSquareCode, Activity } from 'lucide-react';
 
 export const EditorPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -30,7 +39,7 @@ export const EditorPage: React.FC = () => {
   const [language, setLanguage] = useState<string>('python');
   const [code, setCode] = useState<string>(starterTemplates.python);
   const [originalUserCode, setOriginalUserCode] = useState<string>(starterTemplates.python);
-  const [input, setInput] = useState<string>('Pooja\n85\n75');
+  const [input, setInput] = useState<string>('5');
   const [programTitle, setProgramTitle] = useState<string>('Student Grade Calculator & Ranker');
   const [currentProgramId, setCurrentProgramId] = useState<string | null>(programIdParam);
 
@@ -114,13 +123,18 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [autoFixModalData, setAutoFixModalData] = useState<any | null>(null);
 
-  // Active Tool Side Tab: 'explorer' | 'security' | 'testing' | 'performance' | 'agents' | 'git' | 'arch'
-  const [activeSideTab, setActiveSideTab] = useState<'explorer' | 'security' | 'testing' | 'performance' | 'agents' | 'git' | 'arch'>('explorer');
+  // Active Tool Side Tab: 'explorer' | 'chat' | 'security' | 'testing' | 'performance' | 'agents' | 'git' | 'arch'
+  const [activeSideTab, setActiveSideTab] = useState<'explorer' | 'chat' | 'security' | 'testing' | 'performance' | 'agents' | 'git' | 'arch'>('explorer');
 
   // National Feature Modals
   const [isReadinessModalOpen, setIsReadinessModalOpen] = useState(false);
   const [isInterviewArenaOpen, setIsInterviewArenaOpen] = useState(false);
   const [isDemoTourOpen, setIsDemoTourOpen] = useState(false);
+  const [isDeepInspectorOpen, setIsDeepInspectorOpen] = useState(false);
+  const [isPolyglotOpen, setIsPolyglotOpen] = useState(false);
+  const [isVisualizerOpen, setIsVisualizerOpen] = useState(false);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [isCodeGenOpen, setIsCodeGenOpen] = useState(false);
 
   // Security Scanner State
   const [securityScore, setSecurityScore] = useState<number>(95);
@@ -628,6 +642,51 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
             Iterative Re-Debug
           </button>
 
+          {/* AI Code Creator / Generator Button */}
+          <button
+            onClick={() => setIsCodeGenOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-lg transition-all cursor-pointer shadow-md shadow-purple-600/30 text-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+            AI Code Creator
+          </button>
+
+          {/* Polyglot Multi-Language Transpiler */}
+          <button
+            onClick={() => setIsPolyglotOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-950 to-indigo-950 hover:from-purple-900 hover:to-indigo-900 border border-purple-500/40 text-purple-300 font-bold rounded-lg transition-all cursor-pointer text-xs"
+          >
+            <Layers className="w-3.5 h-3.5 text-purple-400" />
+            Polyglot Transpiler
+          </button>
+
+          {/* Live Execution Visualizer */}
+          <button
+            onClick={() => setIsVisualizerOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-950 to-teal-950 hover:from-emerald-900 hover:to-teal-900 border border-emerald-500/40 text-emerald-300 font-bold rounded-lg transition-all cursor-pointer text-xs"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            Execution Visualizer
+          </button>
+
+          {/* Technical Interview Quiz */}
+          <button
+            onClick={() => setIsQuizOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold rounded-lg border border-slate-700 transition-all cursor-pointer text-xs"
+          >
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            Placement Quiz
+          </button>
+
+          {/* AI Deep Code Inspector Trigger */}
+          <button
+            onClick={() => setIsDeepInspectorOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-cyan-950 to-blue-950 hover:from-cyan-900 hover:to-blue-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-lg transition-all cursor-pointer text-xs"
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            AI Deep Inspector
+          </button>
+
           {/* Production Readiness Score Trigger */}
           <button
             onClick={() => setIsReadinessModalOpen(true)}
@@ -660,6 +719,29 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
       {/* Debug Pipeline Visualizer Bar */}
       <DebugPipelineVisualizer workflowState={workflowState} exitCode={exitCode} />
 
+      {/* AI Voice & Audio Mentor Bar */}
+      <div className="px-4 pt-1">
+        <AIVoiceExplainerPanel code={code} language={language} />
+      </div>
+
+      {/* AI Prompt-to-Code Synthesizer Bar */}
+      <div className="px-4 pt-1">
+        <AIPromptBar
+          currentLanguage={language}
+          onCodeGenerated={(newCode, newLang, autoRun) => {
+            setCode(newCode);
+            setOriginalUserCode(newCode);
+            if (newLang) setLanguage(newLang);
+            setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+            setNotificationMessage('✨ Generated code from prompt successfully!');
+            if (autoRun) {
+              executeCodePayload(newCode, newLang || language, false);
+            }
+          }}
+          onOpenFullGenerator={() => setIsCodeGenOpen(true)}
+        />
+      </div>
+
       <main className="flex-1 p-3 lg:p-4 space-y-3 max-w-[1800px] w-full mx-auto flex flex-col">
         
         {/* Main 3-Pane Resizable Layout */}
@@ -677,6 +759,18 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
                 title="File Explorer"
               >
                 <Folder className="w-3.5 h-3.5" /> Files
+              </button>
+              <button
+                onClick={() => setActiveSideTab('chat')}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  activeSideTab === 'chat' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 font-bold' : stderr ? 'text-indigo-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="AI Code & Error Assistant"
+              >
+                <MessageSquareCode className="w-3.5 h-3.5" /> AI Chat
+                {stderr && stderr.trim().length > 0 && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                )}
               </button>
               <button
                 onClick={() => setActiveSideTab('git')}
@@ -743,6 +837,28 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
                   onSelectFile={handleSelectFile}
                   onCreateFile={handleCreateFile}
                   onDeleteFile={handleDeleteFile}
+                />
+              )}
+              {activeSideTab === 'chat' && (
+                <AIChatbotPanel
+                  currentCode={code}
+                  language={language}
+                  stderr={stderr}
+                  stdout={stdout}
+                  errorLine={errorLine}
+                  onApplyCode={(newCode) => {
+                    setCode(newCode);
+                    setOriginalUserCode(newCode);
+                    setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+                    setNotificationMessage('✅ Applied AI corrected code to editor!');
+                  }}
+                  onApplyAndRun={(newCode) => {
+                    setCode(newCode);
+                    setOriginalUserCode(newCode);
+                    setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+                    setNotificationMessage('⚡ Applied AI code & executing now...');
+                    executeCodePayload(newCode, language, true);
+                  }}
                 />
               )}
               {activeSideTab === 'git' && (
@@ -953,6 +1069,72 @@ National-Level Software Engineering Benchmark Project on CodeForge AI.
             onClose={() => setAiAnalysis(null)}
           />
         )}
+
+        {/* AI Deep Code Inspector Modal */}
+        <AIDeepInspectorModal
+          isOpen={isDeepInspectorOpen}
+          onClose={() => setIsDeepInspectorOpen(false)}
+          code={code}
+          language={language}
+          onApplyCode={(newCode) => {
+            setCode(newCode);
+            setIsDeepInspectorOpen(false);
+          }}
+        />
+
+        {/* AI Polyglot Transpiler Modal */}
+        <PolyglotTranspileModal
+          isOpen={isPolyglotOpen}
+          onClose={() => setIsPolyglotOpen(false)}
+          currentCode={code}
+          currentLanguage={language}
+          onLoadLanguageCode={(newCode, newLang) => {
+            setLanguage(newLang);
+            setCode(newCode);
+            setNotificationMessage(`⚡ Transpiled and loaded ${newLang.toUpperCase()} code into editor!`);
+          }}
+        />
+
+        {/* Live Execution Visualizer Modal */}
+        <ExecutionVisualizerModal
+          isOpen={isVisualizerOpen}
+          onClose={() => setIsVisualizerOpen(false)}
+          code={code}
+          language={language}
+        />
+
+        {/* Technical Interview Quiz Modal */}
+        <InteractiveQuizModal
+          isOpen={isQuizOpen}
+          onClose={() => setIsQuizOpen(false)}
+          code={code}
+          language={language}
+        />
+
+        {/* Full-Fledged AI Code Generator Modal */}
+        <AICodeGeneratorModal
+          isOpen={isCodeGenOpen}
+          onClose={() => setIsCodeGenOpen(false)}
+          currentLanguage={language}
+          onApplyCode={(newCode, newLang, autoRun) => {
+            setCode(newCode);
+            setOriginalUserCode(newCode);
+            if (newLang) setLanguage(newLang);
+            setProjectFiles(prev => prev.map(f => f.path === activeFilePath ? { ...f, content: newCode } : f));
+            setNotificationMessage('✨ Applied AI generated code to editor!');
+            if (autoRun) {
+              executeCodePayload(newCode, newLang || language, false);
+            }
+          }}
+        />
+
+        {/* Persistent Floating AI Voice Assistant Widget */}
+        <FloatingVoiceWidget
+          language={language}
+          code={code}
+          stderr={stderr}
+          errorLine={errorLine}
+        />
 
       </main>
     </div>

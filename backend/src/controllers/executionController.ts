@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ExecutorFactory } from '../executors/executorFactory';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from '../middleware/auth';
+import { ErrorParser } from '../services/execution/ErrorParser';
 
 interface ActiveJobHandle {
   killFn: () => void;
@@ -102,6 +103,21 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
 
     activeJobsMap.delete(jobId);
 
+    // Calculate exact error diagnosis, line number, snippet, and fix instructions
+    let errorInfo: any = {};
+    if (result.stderr && result.stderr.trim().length > 0 && result.exitCode !== 0) {
+      const parsed = ErrorParser.parse(result.stderr, targetLanguage, targetCode, input);
+      errorInfo = {
+        errorType: parsed.errorType,
+        errorLine: result.errorLine || parsed.line,
+        errorColumn: result.errorColumn || parsed.column,
+        errorSnippet: result.errorSnippet || parsed.errorSnippet,
+        whatHappened: parsed.whatHappened,
+        whyItHappened: parsed.whyItHappened,
+        howToFix: parsed.howToFix
+      };
+    }
+
     // Store execution in DB
     try {
       const execution = await prisma.execution.create({
@@ -126,13 +142,17 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
         stderr: result.stderr,
         executionTime: result.executionTime,
         exitCode: result.exitCode,
-        errorLine: result.errorLine,
-        errorColumn: result.errorColumn,
+        errorLine: errorInfo.errorLine ?? result.errorLine,
+        errorColumn: errorInfo.errorColumn ?? result.errorColumn,
+        errorType: errorInfo.errorType,
+        errorSnippet: errorInfo.errorSnippet ?? result.errorSnippet,
+        whatHappened: errorInfo.whatHappened,
+        whyItHappened: errorInfo.whyItHappened,
+        howToFix: errorInfo.howToFix,
         missingSymbol: result.missingSymbol,
         missingOperand: result.missingOperand,
         wrongSymbol: result.wrongSymbol,
         suggestedFixSymbol: result.suggestedFixSymbol,
-        errorSnippet: result.errorSnippet,
         createdAt: execution.createdAt
       });
     } catch (dbErr) {
@@ -142,7 +162,18 @@ export const executeCode = async (req: AuthRequest, res: Response): Promise<void
         stdout: result.stdout,
         stderr: result.stderr,
         executionTime: result.executionTime,
-        exitCode: result.exitCode ?? 1
+        exitCode: result.exitCode ?? 1,
+        errorLine: errorInfo.errorLine ?? result.errorLine,
+        errorColumn: errorInfo.errorColumn ?? result.errorColumn,
+        errorType: errorInfo.errorType,
+        errorSnippet: errorInfo.errorSnippet ?? result.errorSnippet,
+        whatHappened: errorInfo.whatHappened,
+        whyItHappened: errorInfo.whyItHappened,
+        howToFix: errorInfo.howToFix,
+        missingSymbol: result.missingSymbol,
+        missingOperand: result.missingOperand,
+        wrongSymbol: result.wrongSymbol,
+        suggestedFixSymbol: result.suggestedFixSymbol
       });
     }
   } catch (error: any) {

@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import { BaseExecutor, ExecutionOptions, ExecutionResult } from './baseExecutor';
 import { stripAnsi } from '../utils/ansi';
+import { CppJitSimulator } from './CppJitSimulator';
 
 export class CppExecutor implements BaseExecutor {
   async execute(options: ExecutionOptions): Promise<ExecutionResult> {
@@ -17,17 +18,44 @@ export class CppExecutor implements BaseExecutor {
     fs.writeFileSync(sourcePath, options.code, 'utf8');
     const startTime = Date.now();
 
-    // 1. Compilation Phase using G++
-    try {
-      execSync(`g++ -std=c++17 "${sourcePath}" -o "${exePath}"`, { cwd: tempDir, timeout: 10000, stdio: 'pipe' });
-    } catch (compileErr: any) {
-      const rawStderr = compileErr.stderr ? compileErr.stderr.toString() : compileErr.message;
-      const cleanStderr = stripAnsi(rawStderr);
+    // 1. Compilation Phase (Try g++, clang++, cl)
+    let compiled = false;
+    let lastCompileError = '';
+
+    const compilerCommands = [
+      `g++ -std=c++17 "${sourcePath}" -o "${exePath}"`,
+      `clang++ -std=c++17 "${sourcePath}" -o "${exePath}"`,
+      `cl.exe /EHsc /std:c++17 "${sourcePath}" /Fe"${exePath}"`
+    ];
+
+    for (const cmd of compilerCommands) {
+      try {
+        execSync(cmd, { cwd: tempDir, timeout: 15000, stdio: 'pipe' });
+        compiled = true;
+        break;
+      } catch (err: any) {
+        const rawStderr = err.stderr ? err.stderr.toString() : err.message || '';
+        lastCompileError = stripAnsi(rawStderr);
+        if (!lastCompileError.includes('not recognized') && !lastCompileError.includes('not found') && !lastCompileError.includes('ENOENT')) {
+          // This is an actual C++ syntax/code error from the compiler
+          break;
+        }
+      }
+    }
+
+    if (!compiled) {
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+      const isMissingCompiler = lastCompileError.includes('not recognized') || lastCompileError.includes('not found') || lastCompileError.includes('ENOENT') || !lastCompileError;
+      
+      if (isMissingCompiler) {
+        // Fallback to CodeForge Neural C++ JIT Simulator
+        return await CppJitSimulator.execute(options);
+      }
+
       return {
         status: 'compilation_error',
         stdout: '',
-        stderr: cleanStderr || 'C++ Compilation Failed.',
+        stderr: lastCompileError || 'C++ Compilation Failed.',
         executionTime: Date.now() - startTime,
         exitCode: 1
       };
