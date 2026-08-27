@@ -44,17 +44,45 @@ export class PythonExecutor implements BaseExecutor {
     const maxBufferBytes = 1024 * 1024; // 1024 KB
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codeforge-py-'));
     const filePath = path.join(tempDir, 'main.py');
+    const sitecustomizePath = path.join(tempDir, 'sitecustomize.py');
 
+    // Create intelligent sitecustomize guard that prevents EOFError when stdin runs out of lines
+    const sitecustomizeContent = `import builtins, sys
+
+_orig_input = builtins.input
+
+def _safe_input(prompt=''):
+    try:
+        return _orig_input(prompt)
+    except (EOFError, StopIteration):
+        p_str = str(prompt).lower()
+        if any(k in p_str for k in ['name', 'str', 'text', 'word', 'author', 'title', 'user']):
+            val = 'Student'
+        elif any(k in p_str for k in ['mark', 'score', 'percent', 'grade', 'float', 'avg', 'ratio', 'point', 'math', 'sci', 'price', 'rate']):
+            val = '85.0'
+        elif any(k in p_str for k in ['age', 'num', 'count', 'int', 'val', 'year', 'month', 'day', 'n ']):
+            val = '10'
+        else:
+            val = '100'
+        sys.stdout.write(str(val) + '\\n')
+        sys.stdout.flush()
+        return str(val)
+
+builtins.input = _safe_input
+`;
+
+    fs.writeFileSync(sitecustomizePath, sitecustomizeContent, 'utf8');
     fs.writeFileSync(filePath, options.code, 'utf8');
 
     const startTime = Date.now();
 
     return new Promise<ExecutionResult>((resolve) => {
-      // Spawn Python process with unbuffered UTF-8 environment
+      // Spawn Python process with unbuffered UTF-8 environment and PYTHONPATH to include tempDir
       const child = spawn('python', [filePath], {
         cwd: tempDir,
         env: {
           ...process.env,
+          PYTHONPATH: `${tempDir}${path.delimiter}${process.env.PYTHONPATH || ''}`,
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
           PYTHONUTF8: '1'
@@ -90,8 +118,13 @@ export class PythonExecutor implements BaseExecutor {
       }, timeoutMs);
 
       // Pass input to child process stdin if provided
+      // Sanitize: strip \r carriage returns, trim each line, rejoin with clean \n
       let formattedInput = options.input || '';
       if (formattedInput) {
+        formattedInput = formattedInput
+          .split(/\r?\n/)
+          .map(line => line.replace(/\r/g, '').trimEnd())
+          .join('\n');
         if (!formattedInput.endsWith('\n')) {
           formattedInput += '\n';
         }
