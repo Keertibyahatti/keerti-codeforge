@@ -128,19 +128,16 @@ export class AIService {
       let validation = PythonExecutor.validateSyntax(candidateCode);
       let execRes = validation.valid ? await ExecutorFactory.getExecutor('python').execute({ code: candidateCode, input: userInput }) : null;
 
-      // Pass 9: Universal Remote AI Model Provider (Gemini / ChatGPT / LLM Prompt) Integration for ANY arbitrary program
+      // Pass 9: Universal Remote AI Model Provider (NVIDIA / Gemini / OpenAI compatible) Integration for ANY arbitrary program
       if (!validation.valid || !execRes || execRes.status !== 'success' || execRes.exitCode !== 0) {
         console.log('[AUTO-FIX] Invoking Universal AI Model provider for deep code repair...');
-        const apiKey = process.env.AI_API_KEY;
-        if (apiKey && apiKey.trim().length > 0) {
+        let apiKey = (process.env.NVIDIA_API_KEY || process.env.AI_API_KEY || '').trim();
+        if (apiKey && !apiKey.startsWith('nvapi-') && apiKey.length === 36) {
+          apiKey = `nvapi-${apiKey}`;
+        }
+        if (apiKey && apiKey.length > 0) {
           try {
-            const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${process.env.AI_MODEL || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [{
-                    text: `You are CodeForge AI, an expert software debugging model (like ChatGPT/Copilot).
+            const promptContent = `You are CodeForge AI, an expert software debugging model (like ChatGPT/Copilot).
 Fix this broken ${req.language} program so it compiles and executes cleanly with Exit Code 0.
 
 Source Code:
@@ -155,19 +152,53 @@ Return ONLY a JSON object matching this schema:
 {
   "fixedCode": "COMPLETE WORKING CORRECTED SOURCE CODE WITHOUT MARKDOWN BACKTICKS",
   "explanation": "Short 1-sentence summary of the fix"
-}`
-                  }]
-                }],
-                generationConfig: { maxOutputTokens: 4096, temperature: 0.1 }
-              })
-            });
+}`;
 
-            if (aiResponse.ok) {
-              const data = await aiResponse.json();
-              const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (rawText) {
-                const cleaned = rawText.replace(/```json/g, '').replace(/```python/g, '').replace(/```/g, '').trim();
-                const parsed = JSON.parse(cleaned);
+            let rawText = '';
+            if (apiKey.startsWith('nvapi-') || process.env.NVIDIA_API_KEY || (process.env.AI_BASE_URL && process.env.AI_BASE_URL.includes('nvidia'))) {
+              const baseUrl = (process.env.NVIDIA_BASE_URL || process.env.AI_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
+              const modelName = process.env.NVIDIA_MODEL || process.env.AI_MODEL || 'meta/llama-3.1-70b-instruct';
+              const aiResponse = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                  model: modelName,
+                  messages: [
+                    { role: 'system', content: 'You are CodeForge AI Universal Debugger. Respond ONLY with valid JSON matching {"fixedCode": "...", "explanation": "..."}.' },
+                    { role: 'user', content: promptContent }
+                  ],
+                  temperature: 0.1,
+                  max_tokens: 4096
+                })
+              });
+              if (aiResponse.ok) {
+                const data: any = await aiResponse.json();
+                rawText = data?.choices?.[0]?.message?.content || '';
+              }
+            } else {
+              const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${process.env.AI_MODEL || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: promptContent }] }],
+                  generationConfig: { maxOutputTokens: 4096, temperature: 0.1 }
+                })
+              });
+              if (aiResponse.ok) {
+                const data: any = await aiResponse.json();
+                rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              }
+            }
+
+            if (rawText) {
+              const cleaned = rawText.replace(/```json/gi, '').replace(/```python/gi, '').replace(/```/g, '').trim();
+              const firstB = cleaned.indexOf('{');
+              const lastB = cleaned.lastIndexOf('}');
+              if (firstB !== -1 && lastB !== -1) {
+                const parsed = JSON.parse(cleaned.substring(firstB, lastB + 1));
                 if (parsed.fixedCode && parsed.fixedCode.trim().length > 0) {
                   candidateCode = parsed.fixedCode;
                   validation = PythonExecutor.validateSyntax(candidateCode);
@@ -384,17 +415,14 @@ Return ONLY a JSON object matching this schema:
   }
 
   static async analyzeError(req: AIAnalysisRequest): Promise<AIAnalysisResponse> {
-    const apiKey = process.env.AI_API_KEY;
+    let apiKey = (process.env.NVIDIA_API_KEY || process.env.AI_API_KEY || '').trim();
+    if (apiKey && !apiKey.startsWith('nvapi-') && apiKey.length === 36) {
+      apiKey = `nvapi-${apiKey}`;
+    }
 
-    if (apiKey && apiKey.trim().length > 0) {
+    if (apiKey && apiKey.length > 0) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${process.env.AI_MODEL || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `You are CodeForge AI, an expert programming tutor. Analyze this ${req.language} code execution issue:
+        const promptContent = `You are CodeForge AI, an expert programming tutor. Analyze this ${req.language} code execution issue:
 Code:
 \`\`\`${req.language}
 ${req.code}
@@ -418,22 +446,58 @@ Respond with ONLY a JSON object matching this interface:
   "suggestedFix": "Step by step fix guide",
   "correctedCode": "Complete working corrected code block without markdown backticks",
   "optimizationSuggestions": ["Suggestion 1", "Suggestion 2"]
-}`
-              }]
-            }],
-            generationConfig: {
-              maxOutputTokens: 2048,
-              temperature: 0.2
-            }
-          })
-        });
+}`;
 
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed: AIAnalysisResponse = JSON.parse(cleaned);
+        let rawText = '';
+        if (apiKey.startsWith('nvapi-') || process.env.NVIDIA_API_KEY || (process.env.AI_BASE_URL && process.env.AI_BASE_URL.includes('nvidia'))) {
+          const baseUrl = (process.env.NVIDIA_BASE_URL || process.env.AI_BASE_URL || 'https://integrate.api.nvidia.com/v1').replace(/\/$/, '');
+          const modelName = process.env.NVIDIA_MODEL || process.env.AI_MODEL || 'meta/llama-3.1-70b-instruct';
+          const response = await fetch(`${baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages: [
+                { role: 'system', content: 'You are CodeForge AI programming tutor. Respond ONLY with valid JSON matching the requested schema.' },
+                { role: 'user', content: promptContent }
+              ],
+              temperature: 0.2,
+              max_tokens: 2048
+            })
+          });
+
+          if (response.ok) {
+            const data: any = await response.json();
+            rawText = data?.choices?.[0]?.message?.content || '';
+          }
+        } else {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${process.env.AI_MODEL || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptContent }] }],
+              generationConfig: {
+                maxOutputTokens: 2048,
+                temperature: 0.2
+              }
+            })
+          });
+
+          if (response.ok) {
+            const data: any = await response.json();
+            rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          }
+        }
+
+        if (rawText) {
+          const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const firstB = cleaned.indexOf('{');
+          const lastB = cleaned.lastIndexOf('}');
+          if (firstB !== -1 && lastB !== -1) {
+            const parsed: AIAnalysisResponse = JSON.parse(cleaned.substring(firstB, lastB + 1));
             parsed.isFallback = false;
             return parsed;
           }
@@ -462,7 +526,7 @@ Respond with ONLY a JSON object matching this interface:
     return {
       summary: stderr ? stderr.split('\n')[0] : 'Execution Error captured.',
       errorType: stderr.includes('SyntaxError') ? 'SyntaxError' : (stderr.includes('NameError') ? 'NameError' : (stderr.includes('TypeError') ? 'TypeError' : 'RuntimeError')),
-      explanation: `What happened? Python encountered an execution issue: ${stderr.trim().split('\n')[0]}\nWhy? Statement contracts or identifier names were violated.\nHow to fix it? Review the highlighted error line and update syntax according to language rules.`,
+      explanation: `What happened? The ${language.toUpperCase()} runtime encountered an execution issue: ${stderr.trim().split('\n')[0]}\nWhy? Statement contracts or identifier names were violated.\nHow to fix it? Review the highlighted error line and update syntax according to language rules.`,
       possibleCause: 'Unresolved identifier reference or syntax operator mismatch.',
       suggestedFix: `Update error statement to conform to valid language syntax.`,
       correctedCode: code,

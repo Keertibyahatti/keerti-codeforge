@@ -14,6 +14,7 @@ export type ErrorCategory =
   | 'MemoryError'
   | 'PermissionError'
   | 'MissingInput'
+  | 'EnvironmentError'
   | 'UnknownError';
 
 export interface ParsedExecutionError {
@@ -26,12 +27,32 @@ export interface ParsedExecutionError {
   traceback: string;
   rawStderr: string;
   isMissingInput?: boolean;
+  isEnvironmentError?: boolean;
 }
 
 export class ErrorParser {
   static parse(rawStderr: string, language: string, code: string, userInput?: string): ParsedExecutionError {
     const stderr = rawStderr || '';
     const lang = (language || 'python').toLowerCase();
+
+    // Check if compiler / interpreter is missing in system environment
+    const isCmdMissing = /'([^']+)'\s+is not recognized as an internal or external command/i.test(stderr) ||
+                         /command not found:\s*([^\s]+)/i.test(stderr) ||
+                         /spawn\s+([^\s]+)\s+ENOENT/i.test(stderr);
+
+    if (isCmdMissing) {
+      const match = stderr.match(/'([^']+)'\s+is not recognized/i) || stderr.match(/command not found:\s*([^\s]+)/i) || stderr.match(/spawn\s+([^\s]+)\s+ENOENT/i);
+      const cmd = match ? match[1] : 'Compiler/Runtime';
+      return {
+        language: lang,
+        errorType: 'EnvironmentError',
+        message: `${cmd} compiler/runtime is not installed or not in your system PATH.`,
+        line: undefined,
+        traceback: stderr,
+        rawStderr: stderr,
+        isEnvironmentError: true
+      };
+    }
 
     let parsed: ParsedExecutionError;
 
@@ -109,6 +130,9 @@ export class ErrorParser {
     if (stderr.includes('AttributeError') || detectedType === 'AttributeError') {
       return 'AttributeError';
     }
+    if (detectedType === 'EnvironmentError' || stderr.includes('is not recognized as an internal') || stderr.includes('command not found')) {
+      return 'EnvironmentError';
+    }
     if (stderr.includes('CompilationError') || stderr.includes('error:') || detectedType === 'CompilationError') {
       return 'CompilationError';
     }
@@ -120,7 +144,7 @@ export class ErrorParser {
       'SyntaxError', 'NameError', 'TypeError', 'ValueError', 'IndexError',
       'KeyError', 'ImportError', 'ModuleNotFoundError', 'AttributeError',
       'RuntimeError', 'CompilationError', 'Timeout', 'MemoryError',
-      'PermissionError', 'MissingInput'
+      'PermissionError', 'MissingInput', 'EnvironmentError'
     ];
 
     if (standardCategories.includes(detectedType as ErrorCategory)) {

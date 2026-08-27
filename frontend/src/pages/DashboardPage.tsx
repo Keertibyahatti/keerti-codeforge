@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, FolderCode, Activity, Terminal, Cpu, Clock, Sparkles, ChevronRight, Trash2, Copy, CheckCircle2, AlertTriangle, ShieldCheck, Zap, TestTube2 } from 'lucide-react';
+import { Plus, FolderCode, Activity, Terminal, Cpu, Clock, Sparkles, ChevronRight, Trash2, Copy, CheckCircle2, AlertTriangle, ShieldCheck, Zap, TestTube2, Layers, Award } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { Sidebar } from '../components/Sidebar';
 import { DashboardChatbot } from '../components/DashboardChatbot';
+import { AIDeepInspectorModal } from '../components/AIDeepInspectorModal';
+import { PolyglotTranspileModal } from '../components/PolyglotTranspileModal';
+import { ExecutionVisualizerModal } from '../components/ExecutionVisualizerModal';
+import { AIVoiceExplainerPanel } from '../components/AIVoiceExplainerPanel';
+import { InteractiveQuizModal } from '../components/InteractiveQuizModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { Program, Execution } from '../types';
@@ -24,6 +29,10 @@ export const DashboardPage: React.FC = () => {
 
   const [programs, setPrograms] = useState<Program[]>([]);
   const [recentExecutions, setRecentExecutions] = useState<Execution[]>([]);
+  const [showInspector, setShowInspector] = useState<boolean>(false);
+  const [showPolyglot, setShowPolyglot] = useState<boolean>(false);
+  const [showVisualizer, setShowVisualizer] = useState<boolean>(false);
+  const [showQuiz, setShowQuiz] = useState<boolean>(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalPrograms: 0,
     totalExecutions: 0,
@@ -105,16 +114,89 @@ export const DashboardPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowPolyglot(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-slate-900/90 hover:bg-slate-800 text-purple-300 border border-purple-500/30 transition-all text-xs cursor-pointer shadow-sm"
+              >
+                <Layers className="w-3.5 h-3.5 text-purple-400" />
+                Polyglot Transpiler
+              </button>
+
+              <button
+                onClick={() => setShowVisualizer(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-slate-900/90 hover:bg-slate-800 text-emerald-300 border border-emerald-500/30 transition-all text-xs cursor-pointer shadow-sm"
+              >
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                Execution Visualizer
+              </button>
+
+              <button
+                onClick={() => setShowQuiz(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/30 transition-all text-xs cursor-pointer shadow-sm"
+              >
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                Placement Quiz
+              </button>
+
+              <button
+                onClick={() => setShowInspector(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 transition-all text-xs cursor-pointer shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                Deep Inspector
+              </button>
+
               <Link
                 to="/editor"
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 New Program
               </Link>
             </div>
           </div>
+
+          {/* AI Voice & Audio Mentor Walkthrough */}
+          <AIVoiceExplainerPanel
+            code={programs[0]?.code || `def solve(nums):\n    total = sum(nums)\n    return total / len(nums) if nums else 0.0\n\nprint(solve([10, 20, 30]))`}
+            language={programs[0]?.language || 'python'}
+          />
+
+          {/* AI Deep Code Inspector Modal */}
+          <AIDeepInspectorModal
+            isOpen={showInspector}
+            onClose={() => setShowInspector(false)}
+            code={programs[0]?.code || `def solve(nums):\n    total = sum(nums)\n    return total / len(nums) if nums else 0.0\n\nprint(solve([10, 20, 30]))`}
+            language={programs[0]?.language || 'python'}
+          />
+
+          {/* AI Polyglot Transpiler Modal */}
+          <PolyglotTranspileModal
+            isOpen={showPolyglot}
+            onClose={() => setShowPolyglot(false)}
+            currentCode={programs[0]?.code || `def calculate_grade(scores):\n    total = sum(scores)\n    return total / len(scores) if scores else 0.0`}
+            currentLanguage={programs[0]?.language || 'python'}
+            onLoadLanguageCode={(code, lang) => {
+              navigate('/editor', { state: { initialCode: code, initialLanguage: lang } });
+            }}
+          />
+
+          {/* Live Execution Visualizer Modal */}
+          <ExecutionVisualizerModal
+            isOpen={showVisualizer}
+            onClose={() => setShowVisualizer(false)}
+            code={programs[0]?.code || `def calculate_grade(scores):\n    total = sum(scores)\n    return total / len(scores) if scores else 0.0`}
+            language={programs[0]?.language || 'python'}
+          />
+
+          {/* Technical Placement Quiz Modal */}
+          <InteractiveQuizModal
+            isOpen={showQuiz}
+            onClose={() => setShowQuiz(false)}
+            code={programs[0]?.code || `def calculate_grade(scores):\n    total = sum(scores)\n    return total / len(scores) if scores else 0.0`}
+            language={programs[0]?.language || 'python'}
+          />
 
           {/* Key Metrics Statistics Grid (Feature 12) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

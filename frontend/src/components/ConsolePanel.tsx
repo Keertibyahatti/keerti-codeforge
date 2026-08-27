@@ -263,6 +263,20 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
           >
             <Terminal className="w-3.5 h-3.5" /> Output
           </button>
+
+          <button
+            onClick={() => setActiveTab('stdin')}
+            className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'stdin'
+                ? 'bg-slate-800 text-amber-400 border border-slate-700'
+                : input && input.trim()
+                ? 'text-amber-300 hover:text-amber-200'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" /> Input (STDIN)
+            {input && input.trim() && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
+          </button>
           
           <button
             onClick={() => setActiveTab('errors')}
@@ -350,13 +364,74 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
               </div>
             )}
 
-            {/* Live Terminal Stdin Stream Input */}
-            <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5 font-sans">
+            {/* Interactive Program STDIN Input Control Bar */}
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2 font-sans">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-300 font-bold flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5 text-blue-400" /> Terminal Live Stdin Stream:
+                <span className="text-slate-200 font-bold flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  Program STDIN Input:
+                  <span className="font-mono text-amber-300 text-[10px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                    {input ? `${input.replace(/\n/g, ' ')}` : '(No Input Set)'}
+                  </span>
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">input() / readline</span>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500 font-semibold">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onInputChange('5');
+                    }}
+                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-amber-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer"
+                  >
+                    5
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onInputChange('10\n20');
+                    }}
+                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-amber-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer"
+                  >
+                    10, 20
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onInputChange('Pooja\n85\n75');
+                    }}
+                    className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-amber-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer"
+                  >
+                    Student
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => onInputChange(e.target.value)}
+                  placeholder="Set input values (e.g. 5 or 10\n20)..."
+                  className="flex-1 bg-slate-900 border border-slate-800 focus:border-amber-500 px-3 py-1.5 rounded-lg text-slate-200 font-mono text-xs outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={onRunCode}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-all text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-600/20"
+                >
+                  <Play className="w-3 h-3 fill-current" /> Run with Input
+                </button>
+              </div>
+            </div>
+
+            {/* Live Terminal Stdin Stream Input */}
+            <div className="p-2.5 bg-slate-950/70 rounded-lg border border-slate-800/80 space-y-1.5 font-sans">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                  <Terminal className="w-3.5 h-3.5 text-blue-400" /> Send Live Terminal Stdin:
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">Live input() feed</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -369,7 +444,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
                       setLiveStdinVal('');
                     }
                   }}
-                  placeholder="Type input value & press Enter..."
+                  placeholder="Type live value and press Enter..."
                   className="flex-1 bg-slate-900 border border-slate-800 focus:border-blue-500 px-3 py-1.5 rounded-lg text-slate-200 font-mono text-xs outline-none"
                 />
                 <button
@@ -381,8 +456,82 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
                   }}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-colors cursor-pointer text-xs"
                 >
-                  Send Stdin
+                  Send Live
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STDIN Input Tab */}
+        {activeTab === 'stdin' && (
+          <div className="space-y-3 font-sans">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/60 pb-1">
+              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-400" /> Standard Input (STDIN)
+              </span>
+              {input && (
+                <span className="text-amber-400 font-mono text-[10px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  {input.split(/\r?\n/).filter(Boolean).length} line(s) ready
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              When your program uses <code className="text-amber-300 bg-slate-950 px-1 py-0.5 rounded">input()</code> (Python), <code className="text-blue-300 bg-slate-950 px-1 py-0.5 rounded">cin</code> (C++), or <code className="text-emerald-300 bg-slate-950 px-1 py-0.5 rounded">Scanner</code> (Java), values typed here are automatically supplied line-by-line.
+            </p>
+
+            <div className="space-y-2 font-mono">
+              <textarea
+                value={input}
+                onChange={(e) => onInputChange(e.target.value)}
+                placeholder={"Enter input values (one per line)...\nExample for factorial:\n5\n\nExample for multiple prompts:\n10\n20\n30"}
+                rows={6}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-100 text-xs font-mono outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 leading-relaxed resize-y"
+              />
+              
+              <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-xs pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 text-slate-400">
+                  <span className="text-[11px] text-slate-500 font-semibold">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => onInputChange('5')}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-md text-[11px] font-mono cursor-pointer border border-slate-700 transition-colors"
+                  >
+                    5 (Single Num)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onInputChange('10\n20')}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-md text-[11px] font-mono cursor-pointer border border-slate-700 transition-colors"
+                  >
+                    10, 20 (Two Nums)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onInputChange('Alice\n85\n92')}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-md text-[11px] font-mono cursor-pointer border border-slate-700 transition-colors"
+                  >
+                    Student Data
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onInputChange('')}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 rounded-md text-[11px] transition-colors cursor-pointer border border-slate-700"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onRunCode}
+                    className="px-3.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg transition-colors text-[11px] flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-600/20"
+                  >
+                    <Play className="w-3 h-3 fill-current" /> Run Code with Input
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -394,26 +543,62 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
             {isErrorState ? (
               <div className="p-4 bg-slate-950 rounded-xl border border-rose-500/30 space-y-3">
                 <div className="flex items-center justify-between border-b border-rose-500/20 pb-2">
-                  <span className="font-bold text-rose-400 text-sm flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-rose-400" />
-                    {parseErrorType()}
-                  </span>
-                  <span className="text-slate-400 font-mono text-xs">
-                    {errorLine ? `Line: ${errorLine}` : 'Runtime Failure'}
-                  </span>
+                    <span className="font-bold text-rose-300 text-sm">{parseErrorType()}</span>
+                  </div>
+                  {errorLine && (
+                    <span className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[10px] font-mono font-bold">
+                      Line {errorLine}
+                    </span>
+                  )}
                 </div>
 
-                {stderr && (
-                  <pre className="text-rose-300 font-mono text-xs bg-slate-900/90 p-3 rounded-lg border border-slate-800 overflow-x-auto whitespace-pre-wrap">
-                    {stderr}
-                  </pre>
-                )}
+                {/* Raw Error Stream */}
+                <pre className="p-3 bg-slate-900 rounded-lg border border-rose-500/20 text-rose-300 font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                  {stderr}
+                </pre>
 
-                {/* Beginner Explanation */}
-                <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 text-xs">
-                  <div className="font-bold text-indigo-300">💡 Beginner-Friendly Explanation:</div>
+                {/* Structured Beginner-Friendly Diagnostic Explanation */}
+                <div className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-xs">
+                  <div className="font-bold text-slate-200 flex items-center gap-1.5 text-xs text-amber-300 border-b border-slate-800 pb-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Beginner-Friendly Explanation:
+                  </div>
+
                   {(() => {
                     const errType = parseErrorType();
+                    if (stderr.includes('is not recognized') || stderr.includes('command not found') || stderr.includes('C++ Compiler') || stderr.includes('C Compiler') || errType === 'EnvironmentError') {
+                      const cmdMatch = stderr.match(/'([^']+)'\s+is not recognized/i) || stderr.match(/command not found:\s*([^\s]+)/i);
+                      const cmd = cmdMatch ? cmdMatch[1] : (language === 'cpp' ? 'g++' : 'gcc');
+                      return (
+                        <>
+                          <p className="text-slate-300">
+                            <strong>What happened:</strong> The <strong>{cmd}</strong> compiler is not installed or not in your Windows system PATH.
+                          </p>
+                          <p className="text-slate-300">
+                            <strong>Why it happened:</strong> Running {language.toUpperCase()} programs requires a local C/C++ compiler like MinGW-w64 or Clang.
+                          </p>
+                          <p className="text-slate-300">
+                            <strong>How to fix:</strong> Install MinGW via PowerShell: <code className="text-emerald-300 bg-slate-950 px-2 py-0.5 rounded font-mono">winget install MSYS2.MSYS2</code> or switch to <strong>Python</strong> or <strong>JavaScript</strong> to run immediately without installing external compilers!
+                          </p>
+                        </>
+                      );
+                    }
+                    if (stderr.includes('ValueError') && stderr.includes('invalid literal for int()')) {
+                      return (
+                        <>
+                          <p className="text-slate-300">
+                            <strong>What happened:</strong> The program expected an integer number for <code className="text-amber-300">int(input())</code>, but received non-numeric text.
+                          </p>
+                          <p className="text-slate-300">
+                            <strong>Why it happened:</strong> The STDIN input passed to the program was not a valid number.
+                          </p>
+                          <p className="text-slate-300">
+                            <strong>How to fix:</strong> Switch to the <strong>Input (STDIN)</strong> tab above, type a number like <code className="text-emerald-300">5</code>, and click <strong>Run with Input</strong>.
+                          </p>
+                        </>
+                      );
+                    }
                     if (errType === 'TypeError' && stderr.includes('missing') && stderr.includes('positional argument')) {
                       const missingArgMatch = stderr.match(/missing \d+ required positional argument: '([^']+)'/);
                       const funcMatch = stderr.match(/TypeError:\s*([a-zA-Z0-9_]+)\(\)\s*missing/);
@@ -470,7 +655,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
                     return (
                       <>
                         <p className="text-slate-300">
-                          <strong>What happened:</strong> Python encountered a <strong className="text-rose-300">{errType}</strong> on line {errorLine || 1}.
+                          <strong>What happened:</strong> The <strong className="text-indigo-400 capitalize">{language || 'Code'}</strong> runtime encountered a <strong className="text-rose-300">{errType}</strong> on line {errorLine || 1}.
                         </p>
                         <p className="text-slate-300">
                           <strong>Why it happened:</strong> {stderr.trim().split('\n')[0]}

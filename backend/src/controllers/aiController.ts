@@ -173,7 +173,7 @@ export const redebugCode = async (req: Request, res: Response): Promise<void> =>
 
 export const chatWithAIController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { question, message, history } = req.body;
+    const { question, message, history, currentCode, code, language, error, stderr, stdout, context } = req.body;
     const q = (question || message || '').trim();
 
     if (!q) {
@@ -181,8 +181,16 @@ export const chatWithAIController = async (req: Request, res: Response): Promise
       return;
     }
 
+    const chatContext = {
+      currentCode: currentCode || code || context?.currentCode || context?.code || '',
+      language: language || context?.language || 'python',
+      error: error || context?.error || '',
+      stderr: stderr || context?.stderr || '',
+      stdout: stdout || context?.stdout || ''
+    };
+
     const { NvidiaService } = await import('../services/ai/NvidiaService');
-    const reply = await NvidiaService.chatWithAI(q, history || []);
+    const reply = await NvidiaService.chatWithAI(q, history || [], chatContext);
 
     res.json({
       success: true,

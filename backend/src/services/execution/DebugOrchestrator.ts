@@ -94,8 +94,10 @@ export class DebugOrchestrator {
 
     // Synthesize default STDIN input if code contains input() calls and no userInput was provided
     if ((!userInput || userInput.trim().length === 0) && (currentCode.includes('input(') || currentCode.includes('Scanner') || currentCode.includes('cin >>'))) {
-      if (/student|grade|mark|name/i.test(currentCode)) {
-        userInput = 'Pooja\n85\n75';
+      if (/int\s*\(\s*input|float\s*\(\s*input|Scanner.*nextInt|cin\s*>>\s*[a-z0-9_]*num/i.test(currentCode)) {
+        userInput = '10\n20\n30\n40';
+      } else if (/name|student|user/i.test(currentCode) && !/^\s*([a-zA-Z0-9_]+)\s*=\s*int\s*\(\s*input/m.test(currentCode)) {
+        userInput = 'Developer\n85\n75';
       } else {
         userInput = '10\n20\n30';
       }

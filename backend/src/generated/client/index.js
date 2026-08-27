@@ -246,7 +246,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\Users\\USER\\Desktop\\codeforge keerti\\backend\\src\\generated\\client",
+      "value": "F:\\KeertiB\\backend\\src\\generated\\client",
       "fromEnvVar": null
     },
     "config": {
@@ -260,7 +260,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "C:\\Users\\USER\\Desktop\\codeforge keerti\\backend\\prisma\\schema.prisma",
+    "sourceFilePath": "F:\\KeertiB\\backend\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
